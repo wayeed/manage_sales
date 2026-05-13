@@ -1,0 +1,262 @@
+/* ==================== 颜色变量 ==================== */
+$primary: #1890ff;
+$primary-light: #e6f7ff;
+$primary-dark: #096dd9;
+$success: #52c41a;
+$warning: #faad14;
+$danger: #ff4d4f;
+$text-primary: #333333;
+$text-regular: #666666;
+$text-secondary: #999999;
+$text-placeholder: #cccccc;
+$border-color: #eeeeee;
+$bg-page: #f5f5f5;
+$bg-white: #ffffff;
+$bg-gray: #fafafa;
+
+/* ==================== 字体规范 ==================== */
+$font-xs: 20rpx;
+$font-sm: 24rpx;
+$font-base: 28rpx;
+$font-md: 30rpx;
+$font-lg: 32rpx;
+$font-xl: 36rpx;
+$font-xxl: 40rpx;
+
+/* ==================== 全局样式 ==================== */
+page {
+  background-color: $bg-page;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC',
+    'Hiragino Sans GB', 'Microsoft YaHei', 'Helvetica Neue', Helvetica, Arial,
+    sans-serif;
+  font-size: $font-base;
+  color: $text-primary;
+  line-height: 1.6;
+  box-sizing: border-box;
+}
+
+view, text, image, input, textarea, button {
+  box-sizing: border-box;
+}
+
+/* ==================== 通用工具类 ==================== */
+.container {
+  padding: 24rpx;
+}
+
+.flex {
+  display: flex;
+}
+
+.flex-col {
+  display: flex;
+  flex-direction: column;
+}
+
+.flex-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.flex-between {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.flex-wrap {
+  flex-wrap: wrap;
+}
+
+.flex-1 {
+  flex: 1;
+}
+
+/* ==================== 文字工具类 ==================== */
+.text-primary {
+  color: $primary;
+}
+
+.text-success {
+  color: $success;
+}
+
+.text-warning {
+  color: $warning;
+}
+
+.text-danger {
+  color: $danger;
+}
+
+.text-secondary {
+  color: $text-secondary;
+}
+
+.text-center {
+  text-align: center;
+}
+
+.text-right {
+  text-align: right;
+}
+
+.text-bold {
+  font-weight: bold;
+}
+
+.text-ellipsis {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ==================== 间距工具类 ==================== */
+.mt-10 { margin-top: 10rpx; }
+.mt-20 { margin-top: 20rpx; }
+.mt-30 { margin-top: 30rpx; }
+.mb-10 { margin-bottom: 10rpx; }
+.mb-20 { margin-bottom: 20rpx; }
+.mb-30 { margin-bottom: 30rpx; }
+.ml-10 { margin-left: 10rpx; }
+.mr-10 { margin-right: 10rpx; }
+.p-20 { padding: 20rpx; }
+.p-30 { padding: 30rpx; }
+.px-20 { padding-left: 20rpx; padding-right: 20rpx; }
+.py-20 { padding-top: 20rpx; padding-bottom: 20rpx; }
+
+/* ==================== 卡片样式 ==================== */
+.card {
+  background-color: $bg-white;
+  border-radius: 16rpx;
+  padding: 30rpx;
+  margin-bottom: 24rpx;
+  box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.04);
+}
+
+/* ==================== 按钮样式 ==================== */
+.btn-primary {
+  background-color: $primary;
+  color: #ffffff;
+  border: none;
+  border-radius: 12rpx;
+  padding: 20rpx 0;
+  text-align: center;
+  font-size: $font-md;
+  line-height: 1;
+
+  &:active {
+    background-color: $primary-dark;
+  }
+
+  &.disabled {
+    opacity: 0.6;
+  }
+}
+
+.btn-outline {
+  background-color: transparent;
+  color: $primary;
+  border: 2rpx solid $primary;
+  border-radius: 12rpx;
+  padding: 18rpx 0;
+  text-align: center;
+  font-size: $font-md;
+}
+
+/* ==================== 标签样式 ==================== */
+.tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 4rpx 16rpx;
+  border-radius: 8rpx;
+  font-size: $font-xs;
+  line-height: 1.5;
+
+  &-primary {
+    background-color: $primary-light;
+    color: $primary;
+  }
+
+  &-success {
+    background-color: #f6ffed;
+    color: $success;
+  }
+
+  &-warning {
+    background-color: #fffbe6;
+    color: $warning;
+  }
+
+  &-danger {
+    background-color: #fff2f0;
+    color: $danger;
+  }
+}
+
+/* ==================== 分割线 ==================== */
+.divider {
+  height: 1rpx;
+  background-color: $border-color;
+  margin: 20rpx 0;
+}
+
+/* ==================== 空状态 ==================== */
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 120rpx 0;
+
+  &__icon {
+    font-size: 120rpx;
+    color: $text-placeholder;
+    margin-bottom: 30rpx;
+  }
+
+  &__text {
+    font-size: $font-base;
+    color: $text-secondary;
+  }
+}
+
+/* ==================== 列表项 ==================== */
+.list-item {
+  display: flex;
+  align-items: center;
+  padding: 24rpx 0;
+  border-bottom: 1rpx solid $border-color;
+
+  &:last-child {
+    border-bottom: none;
+  }
+}
+
+/* ==================== 输入框 ==================== */
+.input-field {
+  width: 100%;
+  height: 88rpx;
+  background-color: $bg-gray;
+  border: 2rpx solid $border-color;
+  border-radius: 12rpx;
+  padding: 0 24rpx;
+  font-size: $font-base;
+  color: $text-primary;
+
+  &::placeholder {
+    color: $text-placeholder;
+  }
+
+  &:focus {
+    border-color: $primary;
+    background-color: $bg-white;
+  }
+}
+
+/* ==================== 安全区域 ==================== */
+.safe-bottom {
+  padding-bottom: constant(safe-area-inset-bottom);
+  padding-bottom: env(safe-area-inset-bottom);
+}

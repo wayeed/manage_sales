@@ -1,0 +1,3110 @@
+basePath: /api
+definitions:
+  furniture-commission_internal_service.AddGiftStockRequest:
+    properties:
+      purchase_price:
+        type: number
+      quantity:
+        minimum: 1
+        type: integer
+      warehouse_id:
+        type: integer
+    required:
+    - quantity
+    - warehouse_id
+    type: object
+  furniture-commission_internal_service.CreateCategoryRequest:
+    properties:
+      category_code:
+        example: CAT001
+        type: string
+      category_name:
+        example: 沙发
+        type: string
+      sort_order:
+        type: integer
+      store_id:
+        type: integer
+    required:
+    - category_code
+    - category_name
+    type: object
+  furniture-commission_internal_service.CreateGiftRequest:
+    properties:
+      cost_price:
+        type: number
+      gift_code:
+        example: GIFT001
+        type: string
+      gift_image:
+        example: https://example.com/gift/pillow.jpg
+        type: string
+      gift_name:
+        example: 精美抱枕
+        type: string
+      store_id:
+        type: integer
+      warning_stock:
+        type: integer
+    required:
+    - gift_code
+    - gift_name
+    type: object
+  furniture-commission_internal_service.CreateProductRequest:
+    properties:
+      brand:
+        example: 品牌A
+        type: string
+      category_id:
+        type: integer
+      cost_price:
+        type: number
+      description:
+        example: 高档真皮沙发，三座位
+        type: string
+      list_price:
+        type: number
+      min_price:
+        type: number
+      product_code:
+        example: P001
+        type: string
+      product_image:
+        example: https://example.com/product/sofa.jpg
+        type: string
+      product_name:
+        example: 真皮沙发
+        type: string
+      reference_cost:
+        type: number
+      store_id:
+        type: integer
+      total_cost_rate:
+        type: number
+      warning_stock:
+        type: integer
+    required:
+    - product_name
+    type: object
+  furniture-commission_internal_service.CreatePurchaseItemRequest:
+    properties:
+      product_name:
+        example: 真皮沙发
+        type: string
+      purchase_price:
+        type: number
+      quantity:
+        minimum: 1
+        type: integer
+      sku_id:
+        type: integer
+      sku_name:
+        example: 真皮沙发-棕色-三座
+        type: string
+    required:
+    - purchase_price
+    - quantity
+    - sku_id
+    type: object
+  furniture-commission_internal_service.CreatePurchaseOrderRequest:
+    properties:
+      items:
+        items:
+          $ref: '#/definitions/furniture-commission_internal_service.CreatePurchaseItemRequest'
+        minItems: 1
+        type: array
+      remark:
+        example: 紧急采购
+        type: string
+      store_id:
+        type: integer
+      supplier_id:
+        type: integer
+      supplier_name:
+        example: 某某供应商
+        type: string
+    required:
+    - items
+    type: object
+  furniture-commission_internal_service.CreateRoleRequest:
+    properties:
+      description:
+        example: 系统管理员角色
+        type: string
+      permission_ids:
+        items:
+          type: integer
+        type: array
+      role_code:
+        example: admin
+        type: string
+      role_name:
+        example: 管理员
+        type: string
+      status:
+        type: integer
+    required:
+    - role_code
+    - role_name
+    type: object
+  furniture-commission_internal_service.CreateSKURequest:
+    properties:
+      attributes:
+        example: 颜色:棕色;规格:三座
+        type: string
+      barcode:
+        example: "6901234567890"
+        type: string
+      product_id:
+        type: integer
+      sku_code:
+        example: SKU001
+        type: string
+      sku_name:
+        example: 真皮沙发-棕色-三座
+        type: string
+    required:
+    - sku_code
+    - sku_name
+    type: object
+  furniture-commission_internal_service.CreateStoreRequest:
+    properties:
+      address:
+        type: string
+      contact_phone:
+        type: string
+      status:
+        type: integer
+      store_code:
+        type: string
+      store_name:
+        type: string
+    required:
+    - address
+    - store_code
+    - store_name
+    type: object
+  furniture-commission_internal_service.CreateUserRequest:
+    properties:
+      bank_account:
+        example: "6222021234567890123"
+        type: string
+      bank_name:
+        example: 中国工商银行
+        type: string
+      base_salary:
+        type: number
+      department_id:
+        type: integer
+      email:
+        example: zhangsan@example.com
+        type: string
+      employee_no:
+        example: EMP001
+        type: string
+      entry_date:
+        example: "2024-01-01"
+        type: string
+      id_card:
+        example: "110101199001011234"
+        type: string
+      is_formal:
+        type: integer
+      parent_id:
+        type: integer
+      password:
+        example: "123456"
+        minLength: 6
+        type: string
+      phone:
+        example: "13800138000"
+        type: string
+      probation_end_date:
+        example: "2024-04-01"
+        type: string
+      real_name:
+        example: 张三
+        type: string
+      referrer_id:
+        type: integer
+      role:
+        type: integer
+      role_ids:
+        items:
+          type: integer
+        type: array
+      store_id:
+        type: integer
+      username:
+        example: zhangsan
+        type: string
+    required:
+    - password
+    - username
+    type: object
+  furniture-commission_internal_service.CreateWarehouseRequest:
+    properties:
+      address:
+        example: 北京市大兴区某某仓库区
+        type: string
+      contact_name:
+        example: 周八
+        type: string
+      contact_phone:
+        example: "13400134000"
+        type: string
+      status:
+        type: integer
+      store_id:
+        type: integer
+      warehouse_code:
+        example: WH001
+        type: string
+      warehouse_name:
+        example: 总仓
+        type: string
+      warehouse_type:
+        type: integer
+    required:
+    - warehouse_code
+    - warehouse_name
+    - warehouse_type
+    type: object
+  furniture-commission_internal_service.UpdateCategoryRequest:
+    properties:
+      category_name:
+        example: 沙发
+        type: string
+      sort_order:
+        type: integer
+      status:
+        type: integer
+    type: object
+  furniture-commission_internal_service.UpdateGiftRequest:
+    properties:
+      cost_price:
+        type: number
+      gift_image:
+        example: https://example.com/gift/pillow.jpg
+        type: string
+      gift_name:
+        example: 精美抱枕
+        type: string
+      status:
+        type: integer
+      warning_stock:
+        type: integer
+    type: object
+  furniture-commission_internal_service.UpdateProductRequest:
+    properties:
+      brand:
+        example: 品牌A
+        type: string
+      category_id:
+        type: integer
+      cost_price:
+        type: number
+      description:
+        example: 高档真皮沙发，三座位
+        type: string
+      list_price:
+        type: number
+      min_price:
+        type: number
+      product_image:
+        example: https://example.com/product/sofa.jpg
+        type: string
+      product_name:
+        example: 真皮沙发
+        type: string
+      reference_cost:
+        type: number
+      total_cost_rate:
+        type: number
+      warning_stock:
+        type: integer
+    type: object
+  furniture-commission_internal_service.UpdateRoleRequest:
+    properties:
+      description:
+        example: 系统管理员角色
+        type: string
+      permission_ids:
+        items:
+          type: integer
+        type: array
+      role_code:
+        example: admin
+        type: string
+      role_name:
+        example: 管理员
+        type: string
+      status:
+        type: integer
+    type: object
+  furniture-commission_internal_service.UpdateStoreRequest:
+    properties:
+      address:
+        type: string
+      contact_phone:
+        type: string
+      status:
+        type: integer
+      store_name:
+        type: string
+    type: object
+  furniture-commission_internal_service.UpdateUserRequest:
+    properties:
+      bank_account:
+        example: "6222021234567890123"
+        type: string
+      bank_name:
+        example: 中国工商银行
+        type: string
+      base_salary:
+        type: number
+      department_id:
+        type: integer
+      email:
+        example: zhangsan@example.com
+        type: string
+      employee_no:
+        example: EMP001
+        type: string
+      entry_date:
+        example: "2024-01-01"
+        type: string
+      id_card:
+        example: "110101199001011234"
+        type: string
+      is_formal:
+        type: integer
+      parent_id:
+        type: integer
+      phone:
+        example: "13800138000"
+        type: string
+      probation_end_date:
+        example: "2024-04-01"
+        type: string
+      real_name:
+        example: 张三
+        type: string
+      referrer_id:
+        type: integer
+      role:
+        type: integer
+      status:
+        type: integer
+      store_id:
+        type: integer
+    type: object
+  furniture-commission_internal_service.UpdateWarehouseRequest:
+    properties:
+      address:
+        example: 北京市大兴区某某仓库区
+        type: string
+      contact_name:
+        example: 周八
+        type: string
+      contact_phone:
+        example: "13400134000"
+        type: string
+      status:
+        type: integer
+      store_id:
+        type: integer
+      warehouse_code:
+        example: WH001
+        type: string
+      warehouse_name:
+        example: 总仓
+        type: string
+      warehouse_type:
+        type: integer
+    type: object
+  internal_handler.AssignPermissionsRequest:
+    properties:
+      permission_ids:
+        example:
+        - 1
+        - 2
+        - 3
+        items:
+          type: integer
+        type: array
+    required:
+    - permission_ids
+    type: object
+  internal_handler.AssignRoleRequest:
+    properties:
+      role_ids:
+        example:
+        - 1
+        - 2
+        - 3
+        items:
+          type: integer
+        type: array
+    required:
+    - role_ids
+    type: object
+  internal_handler.ConfirmReceiptRequest:
+    properties:
+      remark:
+        example: 入库备注
+        type: string
+      warehouse_id:
+        example: 1
+        type: integer
+    type: object
+  internal_handler.GenerateSalaryRequest:
+    properties:
+      salary_month:
+        example: 2024-01
+        type: string
+      store_id:
+        example: 1
+        type: integer
+    required:
+    - salary_month
+    - store_id
+    type: object
+  internal_handler.PageData:
+    properties:
+      list: {}
+      page:
+        example: 1
+        type: integer
+      page_size:
+        example: 10
+        type: integer
+      total:
+        example: 100
+        type: integer
+    type: object
+  internal_handler.Response:
+    properties:
+      code:
+        example: 200
+        type: integer
+      data: {}
+      message:
+        example: success
+        type: string
+      timestamp:
+        example: 1715000000
+        type: integer
+    type: object
+  internal_handler.SetConfigRequest:
+    properties:
+      config_key:
+        example: commission_rate
+        type: string
+      config_type:
+        example: string
+        type: string
+      config_value:
+        example: "0.05"
+        type: string
+      remark:
+        example: 提成比例
+        type: string
+    required:
+    - config_key
+    - config_value
+    type: object
+  internal_handler.SettleFundPoolRequest:
+    properties:
+      period_type:
+        example: 1
+        type: integer
+      period_value:
+        example: 2024-01
+        type: string
+      store_id:
+        example: 1
+        type: integer
+    required:
+    - period_type
+    - period_value
+    - store_id
+    type: object
+  internal_handler.UpdateConfigRequest:
+    properties:
+      config_value:
+        example: "0.08"
+        type: string
+    required:
+    - config_value
+    type: object
+  internal_handler.UpdateProductStatusRequest:
+    properties:
+      status:
+        example: 1
+        type: integer
+    required:
+    - status
+    type: object
+  internal_handler.UpdateUserStatusRequest:
+    properties:
+      status:
+        example: 1
+        type: integer
+    type: object
+  internal_handler.loginRequest:
+    properties:
+      password:
+        type: string
+      username:
+        type: string
+    required:
+    - password
+    - username
+    type: object
+host: localhost:8080
+info:
+  contact:
+    email: support@example.com
+    name: API 支持
+  description: 家具提成管理系统后端 API 接口文档
+  license:
+    name: Apache 2.0
+    url: http://www.apache.org/licenses/LICENSE-2.0.html
+  termsOfService: http://swagger.io/terms/
+  title: 家具提成管理系统 API
+  version: "1.0"
+paths:
+  /categories:
+    get:
+      consumes:
+      - application/json
+      description: 获取品类列表，可按门店ID筛选
+      parameters:
+      - description: 门店ID
+        format: int64
+        in: query
+        name: store_id
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 业务错误
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "401":
+          description: 未认证
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      security:
+      - BearerAuth: []
+      summary: 获取品类列表
+      tags:
+      - 品类管理
+    post:
+      consumes:
+      - application/json
+      description: 创建新品类，需要管理员权限
+      parameters:
+      - description: 创建品类请求
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/furniture-commission_internal_service.CreateCategoryRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 业务错误
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "401":
+          description: 未认证
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      security:
+      - BearerAuth: []
+      summary: 创建品类
+      tags:
+      - 品类管理
+  /categories/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: 根据品类ID删除品类，需要管理员权限
+      parameters:
+      - description: 品类ID
+        format: int64
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 业务错误
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "401":
+          description: 未认证
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      security:
+      - BearerAuth: []
+      summary: 删除品类
+      tags:
+      - 品类管理
+    put:
+      consumes:
+      - application/json
+      description: 根据品类ID更新品类信息，需要管理员权限
+      parameters:
+      - description: 品类ID
+        format: int64
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 更新品类请求
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/furniture-commission_internal_service.UpdateCategoryRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 业务错误
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "401":
+          description: 未认证
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      security:
+      - BearerAuth: []
+      summary: 更新品类
+      tags:
+      - 品类管理
+  /configs:
+    get:
+      consumes:
+      - application/json
+      description: 获取系统中所有配置项列表
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 业务错误
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "401":
+          description: 未认证
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      security:
+      - BearerAuth: []
+      summary: 获取所有系统配置
+      tags:
+      - 系统配置
+    post:
+      consumes:
+      - application/json
+      description: 新增系统配置项（管理员）
+      parameters:
+      - description: 配置信息
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_handler.SetConfigRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 业务错误
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "401":
+          description: 未认证
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      security:
+      - BearerAuth: []
+      summary: 设置系统配置
+      tags:
+      - 系统配置
+  /configs/{key}:
+    get:
+      consumes:
+      - application/json
+      description: 根据配置键获取对应的配置值
+      parameters:
+      - description: 配置键
+        in: path
+        name: key
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 业务错误
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "401":
+          description: 未认证
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      security:
+      - BearerAuth: []
+      summary: 获取单个配置
+      tags:
+      - 系统配置
+    put:
+      consumes:
+      - application/json
+      description: 根据配置键更新配置值（管理员）
+      parameters:
+      - description: 配置键
+        in: path
+        name: key
+        required: true
+        type: string
+      - description: 更新配置请求
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_handler.UpdateConfigRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 业务错误
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "401":
+          description: 未认证
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      security:
+      - BearerAuth: []
+      summary: 更新系统配置
+      tags:
+      - 系统配置
+  /configs/commission-rates:
+    get:
+      consumes:
+      - application/json
+      description: 获取系统中所有提成比例相关的配置项
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 业务错误
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "401":
+          description: 未认证
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      security:
+      - BearerAuth: []
+      summary: 获取所有提成比例配置
+      tags:
+      - 系统配置
+  /dashboard/overview:
+    get:
+      consumes:
+      - application/json
+      description: 获取当前门店的仪表盘概览数据，包括销售、订单、客户等核心指标
+      parameters:
+      - description: 门店ID（不传则使用当前用户门店）
+        format: int64
+        in: query
+        name: store_id
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 业务错误
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "401":
+          description: 未认证
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      security:
+      - BearerAuth: []
+      summary: 获取仪表盘概览
+      tags:
+      - 仪表盘
+  /fund-pools:
+    get:
+      consumes:
+      - application/json
+      description: 分页查询基金池列表，支持按门店和周期类型筛选
+      parameters:
+      - default: 1
+        description: 页码
+        in: query
+        name: page
+        type: integer
+      - default: 10
+        description: 每页数量
+        in: query
+        name: page_size
+        type: integer
+      - description: 门店ID
+        in: query
+        name: store_id
+        type: string
+      - description: 周期类型
+        in: query
+        name: period_type
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 业务错误
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "401":
+          description: 未认证
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      security:
+      - BearerAuth: []
+      summary: 获取基金池列表
+      tags:
+      - 基金池
+  /fund-pools/{id}/shares:
+    get:
+      consumes:
+      - application/json
+      description: 根据基金池ID获取份额分配详情
+      parameters:
+      - description: 基金池ID
+        format: int64
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 业务错误
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "401":
+          description: 未认证
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      security:
+      - BearerAuth: []
+      summary: 获取基金池份额详情
+      tags:
+      - 基金池
+  /fund-pools/settle:
+    post:
+      consumes:
+      - application/json
+      description: 对指定门店和周期进行基金池结算（管理员）
+      parameters:
+      - description: 结算请求
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_handler.SettleFundPoolRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 业务错误
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "401":
+          description: 未认证
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      security:
+      - BearerAuth: []
+      summary: 基金池结算
+      tags:
+      - 基金池
+  /gifts:
+    get:
+      consumes:
+      - application/json
+      description: 分页查询礼品列表，支持按门店、状态、关键词筛选
+      parameters:
+      - default: 1
+        description: 页码
+        in: query
+        name: page
+        type: integer
+      - default: 10
+        description: 每页数量
+        in: query
+        name: page_size
+        type: integer
+      - description: 门店ID
+        format: int64
+        in: query
+        name: store_id
+        type: integer
+      - description: 状态
+        format: int32
+        in: query
+        name: status
+        type: integer
+      - description: 搜索关键词
+        in: query
+        name: keyword
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 业务错误
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "401":
+          description: 未认证
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      security:
+      - BearerAuth: []
+      summary: 获取礼品列表
+      tags:
+      - 礼品管理
+    post:
+      consumes:
+      - application/json
+      description: 创建新礼品，需要管理员权限
+      parameters:
+      - description: 创建礼品请求
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/furniture-commission_internal_service.CreateGiftRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 业务错误
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "401":
+          description: 未认证
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      security:
+      - BearerAuth: []
+      summary: 创建礼品
+      tags:
+      - 礼品管理
+  /gifts/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: 根据礼品ID删除礼品，需要管理员权限
+      parameters:
+      - description: 礼品ID
+        format: int64
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 业务错误
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "401":
+          description: 未认证
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      security:
+      - BearerAuth: []
+      summary: 删除礼品
+      tags:
+      - 礼品管理
+    get:
+      consumes:
+      - application/json
+      description: 根据礼品ID获取礼品详细信息
+      parameters:
+      - description: 礼品ID
+        format: int64
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 业务错误
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "401":
+          description: 未认证
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      security:
+      - BearerAuth: []
+      summary: 获取礼品详情
+      tags:
+      - 礼品管理
+    put:
+      consumes:
+      - application/json
+      description: 根据礼品ID更新礼品信息，需要管理员权限
+      parameters:
+      - description: 礼品ID
+        format: int64
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 更新礼品请求
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/furniture-commission_internal_service.UpdateGiftRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 业务错误
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "401":
+          description: 未认证
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      security:
+      - BearerAuth: []
+      summary: 更新礼品
+      tags:
+      - 礼品管理
+  /gifts/{id}/stock:
+    post:
+      consumes:
+      - application/json
+      description: 为指定礼品增加库存，需要管理员权限
+      parameters:
+      - description: 礼品ID
+        format: int64
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 门店ID
+        format: int64
+        in: query
+        name: store_id
+        type: integer
+      - description: 增加库存请求
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/furniture-commission_internal_service.AddGiftStockRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 业务错误
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "401":
+          description: 未认证
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      security:
+      - BearerAuth: []
+      summary: 增加礼品库存
+      tags:
+      - 礼品管理
+  /inventory/stock:
+    get:
+      consumes:
+      - application/json
+      description: 根据仓库ID和SKU ID查询库存信息
+      parameters:
+      - description: 仓库ID
+        format: int64
+        in: query
+        name: warehouse_id
+        required: true
+        type: integer
+      - description: SKU ID
+        format: int64
+        in: query
+        name: sku_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 业务错误
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "401":
+          description: 未认证
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      security:
+      - BearerAuth: []
+      summary: 查询库存
+      tags:
+      - 库存管理
+  /inventory/stocks:
+    get:
+      consumes:
+      - application/json
+      description: 分页查询仓库库存列表，支持按仓库和关键词筛选
+      parameters:
+      - description: 仓库ID，不传或传0则查询所有仓库
+        format: int64
+        in: query
+        name: warehouse_id
+        type: integer
+      - description: 搜索关键词
+        in: query
+        name: keyword
+        type: string
+      - default: 1
+        description: 页码
+        in: query
+        name: page
+        type: integer
+      - default: 10
+        description: 每页数量
+        in: query
+        name: page_size
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 业务错误
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "401":
+          description: 未认证
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      security:
+      - BearerAuth: []
+      summary: 获取库存列表
+      tags:
+      - 库存管理
+  /inventory/transactions:
+    get:
+      consumes:
+      - application/json
+      description: 分页查询库存流水列表，支持按仓库、类型、日期范围筛选
+      parameters:
+      - description: 仓库ID，不传或传0则查询所有仓库
+        in: query
+        name: warehouse_id
+        type: integer
+      - description: 流水类型
+        in: query
+        name: type
+        type: integer
+      - description: 开始日期
+        in: query
+        name: start_date
+        type: string
+      - description: 结束日期
+        in: query
+        name: end_date
+        type: string
+      - default: 1
+        description: 页码
+        in: query
+        name: page
+        type: integer
+      - default: 10
+        description: 每页数量
+        in: query
+        name: page_size
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 业务错误
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "401":
+          description: 未认证
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      security:
+      - BearerAuth: []
+      summary: 获取库存流水
+      tags:
+      - 库存管理
+  /login:
+    post:
+      consumes:
+      - application/json
+      description: 通过用户名和密码进行登录，返回JWT令牌
+      parameters:
+      - description: 登录请求
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_handler.loginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 业务错误
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      summary: 用户登录
+      tags:
+      - 认证管理
+  /logout:
+    post:
+      consumes:
+      - application/json
+      description: 退出登录，使当前JWT令牌失效
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "401":
+          description: 未认证
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      security:
+      - BearerAuth: []
+      summary: 用户登出
+      tags:
+      - 认证管理
+  /operation-logs:
+    get:
+      consumes:
+      - application/json
+      description: 分页查询操作日志列表，支持关键字搜索
+      parameters:
+      - description: 搜索关键字
+        in: query
+        name: keyword
+        type: string
+      - default: 1
+        description: 页码
+        in: query
+        name: page
+        type: integer
+      - default: 20
+        description: 每页数量
+        in: query
+        name: pageSize
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 业务错误
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "401":
+          description: 未认证
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      security:
+      - BearerAuth: []
+      summary: 获取操作日志列表
+      tags:
+      - 操作日志
+  /permissions:
+    get:
+      consumes:
+      - application/json
+      description: 获取所有权限列表
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 业务错误
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "401":
+          description: 未认证
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      security:
+      - BearerAuth: []
+      summary: 获取权限列表
+      tags:
+      - 权限管理
+  /permissions/tree:
+    get:
+      consumes:
+      - application/json
+      description: 获取权限树形结构数据
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 业务错误
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "401":
+          description: 未认证
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      security:
+      - BearerAuth: []
+      summary: 获取权限树
+      tags:
+      - 权限管理
+  /products:
+    get:
+      consumes:
+      - application/json
+      description: 分页查询商品列表，支持按门店、品类、状态、关键词筛选
+      parameters:
+      - default: 1
+        description: 页码
+        in: query
+        name: page
+        type: integer
+      - default: 10
+        description: 每页数量
+        in: query
+        name: page_size
+        type: integer
+      - description: 门店ID
+        format: int64
+        in: query
+        name: store_id
+        type: integer
+      - description: 品类ID
+        format: int64
+        in: query
+        name: category_id
+        type: integer
+      - description: 状态
+        format: int32
+        in: query
+        name: status
+        type: integer
+      - description: 搜索关键词
+        in: query
+        name: keyword
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 业务错误
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "401":
+          description: 未认证
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      security:
+      - BearerAuth: []
+      summary: 获取商品列表
+      tags:
+      - 商品管理
+    post:
+      consumes:
+      - application/json
+      description: 创建新商品，需要管理员权限
+      parameters:
+      - description: 创建商品请求
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/furniture-commission_internal_service.CreateProductRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 业务错误
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "401":
+          description: 未认证
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      security:
+      - BearerAuth: []
+      summary: 创建商品
+      tags:
+      - 商品管理
+  /products/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: 根据商品ID删除商品，需要管理员权限
+      parameters:
+      - description: 商品ID
+        format: int64
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 业务错误
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "401":
+          description: 未认证
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      security:
+      - BearerAuth: []
+      summary: 删除商品
+      tags:
+      - 商品管理
+    get:
+      consumes:
+      - application/json
+      description: 根据商品ID获取商品详细信息
+      parameters:
+      - description: 商品ID
+        format: int64
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 业务错误
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "401":
+          description: 未认证
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      security:
+      - BearerAuth: []
+      summary: 获取商品详情
+      tags:
+      - 商品管理
+    put:
+      consumes:
+      - application/json
+      description: 根据商品ID更新商品信息，需要管理员权限
+      parameters:
+      - description: 商品ID
+        format: int64
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 更新商品请求
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/furniture-commission_internal_service.UpdateProductRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 业务错误
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "401":
+          description: 未认证
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      security:
+      - BearerAuth: []
+      summary: 更新商品
+      tags:
+      - 商品管理
+  /products/{id}/skus:
+    post:
+      consumes:
+      - application/json
+      description: 为指定商品创建SKU，需要管理员权限
+      parameters:
+      - description: 商品ID
+        format: int64
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 创建SKU请求
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/furniture-commission_internal_service.CreateSKURequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 业务错误
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "401":
+          description: 未认证
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      security:
+      - BearerAuth: []
+      summary: 创建SKU
+      tags:
+      - 商品管理
+  /products/{id}/status:
+    put:
+      consumes:
+      - application/json
+      description: 更新商品的上下架状态，需要管理员权限
+      parameters:
+      - description: 商品ID
+        format: int64
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 状态更新请求
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_handler.UpdateProductStatusRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 业务错误
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "401":
+          description: 未认证
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      security:
+      - BearerAuth: []
+      summary: 更新商品状态
+      tags:
+      - 商品管理
+  /purchases:
+    get:
+      consumes:
+      - application/json
+      description: 分页查询采购订单列表，支持按门店、状态、关键词筛选
+      parameters:
+      - default: 1
+        description: 页码
+        in: query
+        name: page
+        type: integer
+      - default: 10
+        description: 每页数量
+        in: query
+        name: page_size
+        type: integer
+      - description: 门店ID
+        format: int64
+        in: query
+        name: store_id
+        type: integer
+      - description: 订单状态
+        format: int32
+        in: query
+        name: status
+        type: integer
+      - description: 搜索关键词
+        in: query
+        name: keyword
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 业务错误
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "401":
+          description: 未认证
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      security:
+      - BearerAuth: []
+      summary: 获取采购订单列表
+      tags:
+      - 采购管理
+    post:
+      consumes:
+      - application/json
+      description: 创建新的采购订单，需要管理员权限
+      parameters:
+      - description: 仓库ID
+        format: int64
+        in: query
+        name: warehouse_id
+        type: integer
+      - description: 创建采购订单请求
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/furniture-commission_internal_service.CreatePurchaseOrderRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 业务错误
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "401":
+          description: 未认证
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      security:
+      - BearerAuth: []
+      summary: 创建采购订单
+      tags:
+      - 采购管理
+  /purchases/{id}:
+    get:
+      consumes:
+      - application/json
+      description: 根据采购订单ID获取订单详细信息
+      parameters:
+      - description: 采购订单ID
+        format: int64
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 业务错误
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "401":
+          description: 未认证
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      security:
+      - BearerAuth: []
+      summary: 获取采购订单详情
+      tags:
+      - 采购管理
+  /purchases/{id}/approve:
+    put:
+      consumes:
+      - application/json
+      description: 审核通过采购订单，需要管理员权限
+      parameters:
+      - description: 采购订单ID
+        format: int64
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 业务错误
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "401":
+          description: 未认证
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      security:
+      - BearerAuth: []
+      summary: 审核采购订单
+      tags:
+      - 采购管理
+  /purchases/{id}/cancel:
+    put:
+      consumes:
+      - application/json
+      description: 取消采购订单，需要管理员权限
+      parameters:
+      - description: 采购订单ID
+        format: int64
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 业务错误
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "401":
+          description: 未认证
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      security:
+      - BearerAuth: []
+      summary: 取消采购订单
+      tags:
+      - 采购管理
+  /purchases/{id}/receipt:
+    put:
+      consumes:
+      - application/json
+      description: 确认采购订单入库，需要管理员权限
+      parameters:
+      - description: 采购订单ID
+        format: int64
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 确认入库请求
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_handler.ConfirmReceiptRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 业务错误
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "401":
+          description: 未认证
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      security:
+      - BearerAuth: []
+      summary: 确认入库
+      tags:
+      - 采购管理
+  /reports/commission/analysis:
+    get:
+      consumes:
+      - application/json
+      description: 获取指定时间范围内的提成分析数据
+      parameters:
+      - description: 门店ID（不传则使用当前用户门店）
+        format: int64
+        in: query
+        name: store_id
+        type: integer
+      - description: 开始日期，格式：2025-01-01
+        in: query
+        name: start_date
+        required: true
+        type: string
+      - description: 结束日期，格式：2025-12-31
+        in: query
+        name: end_date
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 业务错误
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "401":
+          description: 未认证
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      security:
+      - BearerAuth: []
+      summary: 获取提成分析
+      tags:
+      - 数据报表
+  /reports/inventory/analysis:
+    get:
+      consumes:
+      - application/json
+      description: 获取当前门店的库存分析数据
+      parameters:
+      - description: 门店ID（不传则使用当前用户门店）
+        format: int64
+        in: query
+        name: store_id
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 业务错误
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "401":
+          description: 未认证
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      security:
+      - BearerAuth: []
+      summary: 获取库存分析
+      tags:
+      - 数据报表
+  /reports/payment/analysis:
+    get:
+      consumes:
+      - application/json
+      description: 获取指定时间范围内的回款分析数据
+      parameters:
+      - description: 门店ID（不传则使用当前用户门店）
+        format: int64
+        in: query
+        name: store_id
+        type: integer
+      - description: 开始日期，格式：2025-01-01
+        in: query
+        name: start_date
+        required: true
+        type: string
+      - description: 结束日期，格式：2025-12-31
+        in: query
+        name: end_date
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 业务错误
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "401":
+          description: 未认证
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      security:
+      - BearerAuth: []
+      summary: 获取回款分析
+      tags:
+      - 数据报表
+  /reports/profit/analysis:
+    get:
+      consumes:
+      - application/json
+      description: 获取指定时间范围内的利润分析数据
+      parameters:
+      - description: 门店ID（不传则使用当前用户门店）
+        format: int64
+        in: query
+        name: store_id
+        type: integer
+      - description: 开始日期，格式：2025-01-01
+        in: query
+        name: start_date
+        required: true
+        type: string
+      - description: 结束日期，格式：2025-12-31
+        in: query
+        name: end_date
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 业务错误
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "401":
+          description: 未认证
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      security:
+      - BearerAuth: []
+      summary: 获取利润分析
+      tags:
+      - 数据报表
+  /reports/sales/ranking:
+    get:
+      consumes:
+      - application/json
+      description: 获取指定周期内的业绩排行榜，支持按销售员/设计师维度排行
+      parameters:
+      - description: 门店ID（不传则使用当前用户门店）
+        format: int64
+        in: query
+        name: store_id
+        type: integer
+      - default: month
+        description: 周期类型：month/quarter/year
+        in: query
+        name: period_type
+        type: string
+      - description: 周期值，如：2025-05
+        in: query
+        name: period_value
+        type: string
+      - default: salesman
+        description: 排行维度：salesman/designer
+        in: query
+        name: rank_by
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 业务错误
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "401":
+          description: 未认证
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      security:
+      - BearerAuth: []
+      summary: 获取业绩排行
+      tags:
+      - 数据报表
+  /reports/sales/summary:
+    get:
+      consumes:
+      - application/json
+      description: 获取指定时间范围内的销售汇总数据
+      parameters:
+      - description: 门店ID（不传则使用当前用户门店）
+        format: int64
+        in: query
+        name: store_id
+        type: integer
+      - description: 开始日期，格式：2025-01-01
+        in: query
+        name: start_date
+        required: true
+        type: string
+      - description: 结束日期，格式：2025-12-31
+        in: query
+        name: end_date
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 业务错误
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "401":
+          description: 未认证
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      security:
+      - BearerAuth: []
+      summary: 获取销售总览
+      tags:
+      - 数据报表
+  /reports/sales/trend:
+    get:
+      consumes:
+      - application/json
+      description: 获取指定时间范围内的销售趋势数据，支持按日/周/月维度聚合
+      parameters:
+      - description: 门店ID（不传则使用当前用户门店）
+        format: int64
+        in: query
+        name: store_id
+        type: integer
+      - description: 开始日期，格式：2025-01-01
+        in: query
+        name: start_date
+        required: true
+        type: string
+      - description: 结束日期，格式：2025-12-31
+        in: query
+        name: end_date
+        required: true
+        type: string
+      - default: day
+        description: 聚合维度：day/week/month
+        in: query
+        name: dimension
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 业务错误
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "401":
+          description: 未认证
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      security:
+      - BearerAuth: []
+      summary: 获取销售趋势
+      tags:
+      - 数据报表
+  /roles:
+    get:
+      consumes:
+      - application/json
+      description: 获取所有角色列表
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 业务错误
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "401":
+          description: 未认证
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      security:
+      - BearerAuth: []
+      summary: 获取角色列表
+      tags:
+      - 角色管理
+    post:
+      consumes:
+      - application/json
+      description: 创建新角色，需要管理员权限
+      parameters:
+      - description: 创建角色请求
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/furniture-commission_internal_service.CreateRoleRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 业务错误
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "401":
+          description: 未认证
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      security:
+      - BearerAuth: []
+      summary: 创建角色
+      tags:
+      - 角色管理
+  /roles/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: 根据角色ID删除角色，需要管理员权限
+      parameters:
+      - description: 角色ID
+        format: int64
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 业务错误
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "401":
+          description: 未认证
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      security:
+      - BearerAuth: []
+      summary: 删除角色
+      tags:
+      - 角色管理
+    get:
+      consumes:
+      - application/json
+      description: 根据角色ID获取角色详细信息
+      parameters:
+      - description: 角色ID
+        format: int64
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 业务错误
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "401":
+          description: 未认证
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      security:
+      - BearerAuth: []
+      summary: 获取角色详情
+      tags:
+      - 角色管理
+    put:
+      consumes:
+      - application/json
+      description: 根据角色ID更新角色信息，需要管理员权限
+      parameters:
+      - description: 角色ID
+        format: int64
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 更新角色请求
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/furniture-commission_internal_service.UpdateRoleRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 业务错误
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "401":
+          description: 未认证
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      security:
+      - BearerAuth: []
+      summary: 更新角色
+      tags:
+      - 角色管理
+  /roles/{id}/permissions:
+    get:
+      consumes:
+      - application/json
+      description: 根据角色ID获取该角色拥有的权限列表
+      parameters:
+      - description: 角色ID
+        format: int64
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 业务错误
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "401":
+          description: 未认证
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      security:
+      - BearerAuth: []
+      summary: 获取角色权限
+      tags:
+      - 角色管理
+    post:
+      consumes:
+      - application/json
+      description: 为角色分配权限，需要管理员权限
+      parameters:
+      - description: 角色ID
+        format: int64
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 分配权限请求
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_handler.AssignPermissionsRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 业务错误
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "401":
+          description: 未认证
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      security:
+      - BearerAuth: []
+      summary: 分配权限
+      tags:
+      - 角色管理
+  /salaries:
+    get:
+      consumes:
+      - application/json
+      description: 分页查询工资记录列表，支持按门店、月份、状态筛选
+      parameters:
+      - default: 1
+        description: 页码
+        in: query
+        name: page
+        type: integer
+      - default: 10
+        description: 每页数量
+        in: query
+        name: page_size
+        type: integer
+      - description: 门店ID
+        in: query
+        name: store_id
+        type: string
+      - default: 2024-01
+        description: 工资月份
+        in: query
+        name: salary_month
+        type: string
+      - description: 状态
+        in: query
+        name: status
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 业务错误
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "401":
+          description: 未认证
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      security:
+      - BearerAuth: []
+      summary: 获取工资列表
+      tags:
+      - 工资管理
+  /salaries/{id}:
+    get:
+      consumes:
+      - application/json
+      description: 根据工资记录ID获取工资详细信息
+      parameters:
+      - description: 工资记录ID
+        format: int64
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 业务错误
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "401":
+          description: 未认证
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      security:
+      - BearerAuth: []
+      summary: 获取工资详情
+      tags:
+      - 工资管理
+  /salaries/{id}/confirm:
+    post:
+      consumes:
+      - application/json
+      description: 审核确认指定工资记录（管理员）
+      parameters:
+      - description: 工资记录ID
+        format: int64
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 业务错误
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "401":
+          description: 未认证
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      security:
+      - BearerAuth: []
+      summary: 审核确认工资
+      tags:
+      - 工资管理
+  /salaries/{id}/pay:
+    post:
+      consumes:
+      - application/json
+      description: 发放指定工资记录的工资（管理员）
+      parameters:
+      - description: 工资记录ID
+        format: int64
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 发放信息
+        in: body
+        name: request
+        schema:
+          additionalProperties: true
+          type: object
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 业务错误
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "401":
+          description: 未认证
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      security:
+      - BearerAuth: []
+      summary: 发放工资
+      tags:
+      - 工资管理
+  /salaries/employee/{employee_id}/{salary_month}:
+    get:
+      consumes:
+      - application/json
+      description: 根据员工ID和工资月份获取该员工的月度工资记录
+      parameters:
+      - description: 员工ID
+        format: int64
+        in: path
+        name: employee_id
+        required: true
+        type: integer
+      - description: 工资月份，格式：2024-01
+        in: path
+        name: salary_month
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 业务错误
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "401":
+          description: 未认证
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      security:
+      - BearerAuth: []
+      summary: 获取员工月度工资
+      tags:
+      - 工资管理
+  /salaries/generate:
+    post:
+      consumes:
+      - application/json
+      description: 根据门店和月份生成月度工资记录（管理员）
+      parameters:
+      - description: 生成工资请求
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_handler.GenerateSalaryRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 业务错误
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "401":
+          description: 未认证
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      security:
+      - BearerAuth: []
+      summary: 生成月度工资
+      tags:
+      - 工资管理
+  /skus:
+    get:
+      consumes:
+      - application/json
+      description: 分页查询所有SKU列表，支持关键词搜索
+      parameters:
+      - description: 搜索关键词
+        in: query
+        name: keyword
+        type: string
+      - default: 1
+        description: 页码
+        in: query
+        name: page
+        type: integer
+      - default: 10
+        description: 每页数量
+        in: query
+        name: page_size
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 业务错误
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "401":
+          description: 未认证
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      security:
+      - BearerAuth: []
+      summary: 获取所有SKU列表
+      tags:
+      - 商品管理
+  /skus/with-stock:
+    get:
+      consumes:
+      - application/json
+      description: 分页查询带库存信息的SKU列表，用于订单选商品
+      parameters:
+      - description: 门店ID
+        format: int64
+        in: query
+        name: store_id
+        required: true
+        type: integer
+      - description: 搜索关键词
+        in: query
+        name: keyword
+        type: string
+      - default: 1
+        description: 页码
+        in: query
+        name: page
+        type: integer
+      - default: 10
+        description: 每页数量
+        in: query
+        name: page_size
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 业务错误
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "401":
+          description: 未认证
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      security:
+      - BearerAuth: []
+      summary: 获取带库存的SKU列表
+      tags:
+      - 商品管理
+  /stores:
+    get:
+      consumes:
+      - application/json
+      description: 获取所有门店信息列表
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 业务错误
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "401":
+          description: 未认证
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      security:
+      - BearerAuth: []
+      summary: 获取门店列表
+      tags:
+      - 门店管理
+    post:
+      consumes:
+      - application/json
+      description: 创建新门店（管理员）
+      parameters:
+      - description: 门店信息
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/furniture-commission_internal_service.CreateStoreRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 业务错误
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "401":
+          description: 未认证
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      security:
+      - BearerAuth: []
+      summary: 创建门店
+      tags:
+      - 门店管理
+  /stores/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: 根据门店ID删除门店（管理员）
+      parameters:
+      - description: 门店ID
+        format: int64
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 业务错误
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "401":
+          description: 未认证
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      security:
+      - BearerAuth: []
+      summary: 删除门店
+      tags:
+      - 门店管理
+    put:
+      consumes:
+      - application/json
+      description: 根据门店ID更新门店信息（管理员）
+      parameters:
+      - description: 门店ID
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 更新门店信息
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/furniture-commission_internal_service.UpdateStoreRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 业务错误
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "401":
+          description: 未认证
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      security:
+      - BearerAuth: []
+      summary: 更新门店
+      tags:
+      - 门店管理
+  /upload/image:
+    post:
+      consumes:
+      - multipart/form-data
+      description: 上传图片文件，支持 jpg/png/gif/bmp/webp/svg 格式，最大 5MB
+      parameters:
+      - description: 图片文件
+        in: formData
+        name: file
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 业务错误
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "401":
+          description: 未认证
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      security:
+      - BearerAuth: []
+      summary: 上传图片
+      tags:
+      - 文件上传
+  /users:
+    get:
+      consumes:
+      - application/json
+      description: 分页查询用户列表，支持按关键词、角色、状态筛选
+      parameters:
+      - default: 1
+        description: 页码
+        in: query
+        name: page
+        type: integer
+      - default: 10
+        description: 每页数量
+        in: query
+        name: page_size
+        type: integer
+      - description: 搜索关键词
+        in: query
+        name: keyword
+        type: string
+      - description: 角色筛选
+        in: query
+        name: role
+        type: integer
+      - description: 状态筛选
+        in: query
+        name: status
+        type: integer
+      - description: 门店ID
+        in: query
+        name: store_id
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 业务错误
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "401":
+          description: 未认证
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      security:
+      - BearerAuth: []
+      summary: 获取用户列表
+      tags:
+      - 用户管理
+    post:
+      consumes:
+      - application/json
+      description: 创建新用户，需要管理员权限
+      parameters:
+      - description: 创建用户请求
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/furniture-commission_internal_service.CreateUserRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 业务错误
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "401":
+          description: 未认证
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      security:
+      - BearerAuth: []
+      summary: 创建用户
+      tags:
+      - 用户管理
+  /users/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: 根据用户ID删除用户，需要管理员权限
+      parameters:
+      - description: 用户ID
+        format: int64
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 业务错误
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "401":
+          description: 未认证
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      security:
+      - BearerAuth: []
+      summary: 删除用户
+      tags:
+      - 用户管理
+    get:
+      consumes:
+      - application/json
+      description: 根据用户ID获取用户详细信息
+      parameters:
+      - description: 用户ID
+        format: int64
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 业务错误
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "401":
+          description: 未认证
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      security:
+      - BearerAuth: []
+      summary: 获取用户详情
+      tags:
+      - 用户管理
+    put:
+      consumes:
+      - application/json
+      description: 根据用户ID更新用户信息
+      parameters:
+      - description: 用户ID
+        format: int64
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 更新用户请求
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/furniture-commission_internal_service.UpdateUserRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 业务错误
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "401":
+          description: 未认证
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      security:
+      - BearerAuth: []
+      summary: 更新用户
+      tags:
+      - 用户管理
+  /users/{id}/reset-password:
+    post:
+      consumes:
+      - application/json
+      description: 重置指定用户的密码，返回新密码，需要管理员权限
+      parameters:
+      - description: 用户ID
+        format: int64
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 业务错误
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "401":
+          description: 未认证
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      security:
+      - BearerAuth: []
+      summary: 重置密码
+      tags:
+      - 用户管理
+  /users/{id}/roles:
+    post:
+      consumes:
+      - application/json
+      description: 为用户分配一个或多个角色，需要管理员权限
+      parameters:
+      - description: 用户ID
+        format: int64
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 分配角色请求
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_handler.AssignRoleRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 业务错误
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "401":
+          description: 未认证
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      security:
+      - BearerAuth: []
+      summary: 分配角色
+      tags:
+      - 用户管理
+  /users/{id}/status:
+    put:
+      consumes:
+      - application/json
+      description: 启用或禁用用户账号，需要管理员权限
+      parameters:
+      - description: 用户ID
+        format: int64
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 状态更新请求
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_handler.UpdateUserStatusRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 业务错误
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "401":
+          description: 未认证
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      security:
+      - BearerAuth: []
+      summary: 更新用户状态
+      tags:
+      - 用户管理
+  /users/me:
+    get:
+      consumes:
+      - application/json
+      description: 根据JWT令牌获取当前登录用户的详细信息
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 成功
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "401":
+          description: 未认证
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      security:
+      - BearerAuth: []
+      summary: 获取当前用户信息
+      tags:
+      - 认证管理
+  /warehouses:
+    get:
+      consumes:
+      - application/json
+      description: 获取仓库列表，可按门店ID筛选
+      parameters:
+      - description: 门店ID
+        format: int64
+        in: query
+        name: store_id
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 业务错误
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "401":
+          description: 未认证
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      security:
+      - BearerAuth: []
+      summary: 获取仓库列表
+      tags:
+      - 仓库管理
+    post:
+      consumes:
+      - application/json
+      description: 创建新仓库
+      parameters:
+      - description: 创建仓库请求
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/furniture-commission_internal_service.CreateWarehouseRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 业务错误
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "401":
+          description: 未认证
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      security:
+      - BearerAuth: []
+      summary: 创建仓库
+      tags:
+      - 仓库管理
+  /warehouses/{id}:
+    delete:
+      consumes:
+      - application/json
+      description: 根据仓库ID删除仓库
+      parameters:
+      - description: 仓库ID
+        format: int64
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 业务错误
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "401":
+          description: 未认证
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      security:
+      - BearerAuth: []
+      summary: 删除仓库
+      tags:
+      - 仓库管理
+    get:
+      consumes:
+      - application/json
+      description: 根据仓库ID获取仓库详细信息
+      parameters:
+      - description: 仓库ID
+        format: int64
+        in: path
+        name: id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 业务错误
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "401":
+          description: 未认证
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      security:
+      - BearerAuth: []
+      summary: 获取仓库详情
+      tags:
+      - 仓库管理
+    put:
+      consumes:
+      - application/json
+      description: 根据仓库ID更新仓库信息
+      parameters:
+      - description: 仓库ID
+        format: int64
+        in: path
+        name: id
+        required: true
+        type: integer
+      - description: 更新仓库请求
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/furniture-commission_internal_service.UpdateWarehouseRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 业务错误
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+        "401":
+          description: 未认证
+          schema:
+            $ref: '#/definitions/internal_handler.Response'
+      security:
+      - BearerAuth: []
+      summary: 更新仓库
+      tags:
+      - 仓库管理
+securityDefinitions:
+  BearerAuth:
+    description: 'JWT Bearer Token 认证，格式: Bearer {token}'
+    in: header
+    name: Authorization
+    type: apiKey
+swagger: "2.0"

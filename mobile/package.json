@@ -1,0 +1,30 @@
+{
+  "name": "furniture-commission-mobile",
+  "version": "1.0.0",
+  "scripts": {
+    "dev:h5": "uni",
+    "build:h5": "uni build"
+  },
+  "dependencies": {
+    "@dcloudio/uni-app": "3.0.0-4060620250520001",
+    "@dcloudio/uni-app-plus": "3.0.0-4060620250520001",
+    "@dcloudio/uni-components": "3.0.0-4060620250520001",
+    "@dcloudio/uni-h5": "3.0.0-4060620250520001",
+    "@dcloudio/uni-cloud": "3.0.0-4060620250520001",
+    "vue": "^3.4.0",
+    "pinia": "^2.1.0"
+  },
+  "devDependencies": {
+    "@dcloudio/uni-cli-shared": "3.0.0-4060620250520001",
+    "@dcloudio/vite-plugin-uni": "3.0.0-4060620250520001",
+    "sass-embedded": "^1.80.0",
+    "vite": "^5.4.19"
+  },
+  "overrides": {
+    "@intlify/core-base": "^9.14.5",
+    "@intlify/message-compiler": "^9.14.5",
+    "@intlify/message-resolver": "^9.14.5",
+    "@intlify/runtime": "^9.14.5",
+    "@intlify/vue-devtools": "^9.14.5"
+  }
+}
