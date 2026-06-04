@@ -35,9 +35,10 @@ func (s *Scheduler) Start() {
 	configService := service.NewConfigService(configRepo)
 	commissionService := service.NewCommissionService(db, commissionRepo, orderRepo, referralRepo, configService)
 	fundPoolService := service.NewFundPoolService(db, fundPoolRepo, commissionRepo, configService)
+	fixedCommissionService := service.NewFixedCommissionService(db, commissionRepo, orderRepo, configService)
 
 	// 注册定时任务
-	commissionTask := NewCommissionTask(commissionService, fundPoolService)
+	commissionTask := NewCommissionTask(commissionService, fundPoolService, fixedCommissionService)
 
 	// 每月1日凌晨2点执行提成核算
 	_, err := s.cron.AddFunc("0 0 2 1 * *", func() {

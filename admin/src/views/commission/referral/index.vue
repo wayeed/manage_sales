@@ -5,7 +5,7 @@
       <template #header>
         <div class="card-header">
           <span class="title">老带新管理</span>
-          <el-button type="primary" icon="Plus" @click="handleAdd">新增引荐关系</el-button>
+          <span class="subtitle">系统奖励比例：{{ systemRewardRate }}</span>
         </div>
       </template>
 
@@ -18,12 +18,12 @@
       >
         <el-table-column label="引荐人" width="140">
           <template #default="{ row }">
-            {{ row.referrer?.real_name || '-' }}
+            {{ row.referrer?.real_name || row.referrer?.username || '-' }}
           </template>
         </el-table-column>
         <el-table-column label="被引荐人" width="140">
           <template #default="{ row }">
-            {{ row.referred?.real_name || '-' }}
+            {{ row.referred?.real_name || row.referred?.username || '-' }}
           </template>
         </el-table-column>
         <el-table-column label="状态" width="100" align="center">
@@ -35,12 +35,26 @@
         </el-table-column>
         <el-table-column label="奖励比例" width="120" align="center">
           <template #default="{ row }">
-            {{ formatPercent(row.reward_rate) }}
+            <el-tag v-if="row.status === 1" type="warning" size="small">{{ systemRewardRate }}</el-tag>
+            <span v-else class="text-muted">-</span>
           </template>
         </el-table-column>
-        <el-table-column prop="remark" label="备注" min-width="200" show-overflow-tooltip />
-        <el-table-column prop="created_at" label="创建时间" width="180" />
-        <el-table-column label="操作" width="160" align="center" fixed="right">
+        <el-table-column label="创建时间" width="180">
+          <template #default="{ row }">
+            {{ row.created_at ? row.created_at.substring(0, 19).replace('T', ' ') : '-' }}
+          </template>
+        </el-table-column>
+        <el-table-column label="终止时间" width="180">
+          <template #default="{ row }">
+            {{ row.ended_at ? row.ended_at.substring(0, 19).replace('T', ' ') : '-' }}
+          </template>
+        </el-table-column>
+        <el-table-column label="终止原因" min-width="160" show-overflow-tooltip>
+          <template #default="{ row }">
+            {{ row.ended_reason || '-' }}
+          </template>
+        </el-table-column>
+        <el-table-column label="操作" width="120" align="center" fixed="right">
           <template #default="{ row }">
             <el-button
               v-if="row.status === 1"
@@ -48,6 +62,7 @@
             >
               终止关系
             </el-button>
+            <span v-else class="text-muted">-</span>
           </template>
         </el-table-column>
       </el-table>
@@ -66,92 +81,41 @@
         />
       </div>
     </el-card>
-
-    <!-- 新增引荐关系弹窗 -->
-    
-<el-dialog v-dialog-drag
-      v-model="formDialogVisible"
-      title="新增引荐关系"
-      width="520px"
-      destroy-on-close
-    >
-      <el-form
-        ref="formRef"
-        :model="formData"
-        :rules="formRules"
-        label-width="100px"
-      >
-        <el-form-item label="引荐人" prop="referrer_id">
-          <el-select
-            v-model="formData.referrer_id"
-            placeholder="请选择引荐人"
-            filterable
-            style="width: 100%"
-          >
-            <el-option
-              v-for="item in employeeOptions"
-              :key="item.id"
-              :label="item.real_name"
-              :value="item.id"
-            />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="被引荐人" prop="referred_id">
-          <el-select
-            v-model="formData.referred_id"
-            placeholder="请选择被引荐人"
-            filterable
-            style="width: 100%"
-          >
-            <el-option
-              v-for="item in employeeOptions"
-              :key="item.id"
-              :label="item.real_name"
-              :value="item.id"
-            />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="奖励比例" prop="reward_rate">
-          <el-input-number
-            v-model="formData.reward_rate"
-            :min="0"
-            :max="100"
-            :precision="1"
-            :step="0.5"
-            controls-position="right"
-            style="width: 100%"
-          />
-          <span style="margin-left: 8px; color: #909399">%</span>
-        </el-form-item>
-        <el-form-item label="备注">
-          <el-input
-            v-model="formData.remark"
-            type="textarea"
-            :rows="3"
-            placeholder="请输入备注"
-          />
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="formDialogVisible = false">取消</el-button>
-        <el-button type="primary" :loading="submitLoading" @click="handleSubmit">
-          确认
-        </el-button>
-      </template>
-    </el-dialog>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { get, post } from '@/api/request'
-import { formatPercent } from '@/utils/format'
+import { getConfigList } from '@/api/config'
+
+// ==================== 系统配置 ====================
+const systemConfig = ref({})
+const systemRewardRate = computed(() => {
+  const rate = systemConfig.value['referral_reward_rate']
+  if (rate) {
+    const val = Number(rate)
+    return val < 1 ? `${(val * 100).toFixed(1)}%` : `${val}%`
+  }
+  return '-'
+})
+
+const fetchSystemConfig = async () => {
+  try {
+    const res = await getConfigList()
+    const configs = res.data || []
+    const configMap = {}
+    configs.forEach(c => { configMap[c.config_key] = c.config_value })
+    systemConfig.value = configMap
+  } catch (e) {
+    console.error('获取系统配置失败:', e)
+  }
+}
 
 // ==================== 列表 ====================
 const loading = ref(false)
 const referralList = ref([])
-const employeeOptions = ref([])
 
 const pagination = reactive({
   page: 1,
@@ -176,89 +140,22 @@ const fetchList = async () => {
   }
 }
 
-const fetchEmployees = async () => {
-  try {
-    const res = await get('/employees', { page_size: 999 })
-    employeeOptions.value = res.data?.list || res.data || []
-  } catch (error) {
-    console.error('获取员工列表失败:', error)
-  }
-}
-
 // ==================== 状态映射 ====================
 const getReferralStatusLabel = (status) => {
-  const map = {
-    1: '生效中',
-    2: '已终止',
-  }
-  return map[status] || status || '未知'
+  const map = { 1: '生效中', 0: '已终止' }
+  return map[status] ?? '未知'
 }
 
 const getReferralStatusTag = (status) => {
-  const map = {
-    1: 'success',
-    2: 'info',
-  }
-  return map[status] || 'info'
-}
-
-// ==================== 新增引荐关系 ====================
-const formDialogVisible = ref(false)
-const submitLoading = ref(false)
-const formRef = ref(null)
-
-const formData = reactive({
-  referrer_id: '',
-  referred_id: '',
-  reward_rate: 0,
-  remark: '',
-})
-
-const formRules = {
-  referrer_id: [{ required: true, message: '请选择引荐人', trigger: 'change' }],
-  referred_id: [{ required: true, message: '请选择被引荐人', trigger: 'change' }],
-  reward_rate: [{ required: true, message: '请输入奖励比例', trigger: 'blur' }],
-}
-
-const handleAdd = () => {
-  formData.referrer_id = ''
-  formData.referred_id = ''
-  formData.reward_rate = 0
-  formData.remark = ''
-  formDialogVisible.value = true
-}
-
-const handleSubmit = async () => {
-  const valid = await formRef.value?.validate().catch(() => false)
-  if (!valid) return
-
-  if (formData.referrer_id === formData.referred_id) {
-    ElMessage.warning('引荐人和被引荐人不能相同')
-    return
-  }
-
-  submitLoading.value = true
-  try {
-    await post('/referrals', {
-      referrer_id: formData.referrer_id,
-      referred_id: formData.referred_id,
-      reward_rate: formData.reward_rate,
-      remark: formData.remark,
-    })
-    ElMessage.success('新增成功')
-    formDialogVisible.value = false
-    fetchList()
-  } catch (error) {
-    console.error('新增引荐关系失败:', error)
-  } finally {
-    submitLoading.value = false
-  }
+  return status === 1 ? 'success' : 'info'
 }
 
 // ==================== 终止关系 ====================
 const handleTerminate = (row) => {
+  const referrerName = row.referrer?.real_name || row.referrer?.username || '-'
+  const referredName = row.referred?.real_name || row.referred?.username || '-'
   ElMessageBox.confirm(
-    `确定要终止 "${row.referrer?.real_name}" 与 "${row.referred?.real_name}" 的引荐关系吗？`,
+    `确定要终止 "${referrerName}" 与 "${referredName}" 的引荐关系吗？`,
     '终止确认',
     {
       confirmButtonText: '确定终止',
@@ -278,8 +175,8 @@ const handleTerminate = (row) => {
 
 // ==================== 初始化 ====================
 onMounted(() => {
+  fetchSystemConfig()
   fetchList()
-  fetchEmployees()
 })
 </script>
 
@@ -295,6 +192,11 @@ onMounted(() => {
       font-weight: 600;
       color: #303133;
     }
+
+    .subtitle {
+      font-size: 13px;
+      color: #909399;
+    }
   }
 
   .table-card {
@@ -303,6 +205,10 @@ onMounted(() => {
       justify-content: flex-end;
       margin-top: 16px;
     }
+  }
+
+  .text-muted {
+    color: #c0c4cc;
   }
 }
 </style>

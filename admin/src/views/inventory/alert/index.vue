@@ -41,9 +41,14 @@
       <template #header>
         <div class="card-header">
           <span class="title">库存预警</span>
-          <el-tag type="danger" effect="dark" size="small">
-            {{ pendingCount }} 条待处理
-          </el-tag>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <el-button type="warning" size="small" :loading="checkLoading" @click="handleCheckAlerts">
+              检查预警
+            </el-button>
+            <el-tag type="danger" effect="dark" size="small">
+              {{ pendingCount }} 条待处理
+            </el-tag>
+          </div>
         </div>
       </template>
 
@@ -164,7 +169,7 @@
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
-import { getStockAlerts, handleAlert } from '@/api/inventory'
+import { getStockAlerts, checkStockAlerts, handleAlert } from '@/api/inventory'
 import { getWarehouseList } from '@/api/warehouse'
 
 // ==================== 搜索与列表 ====================
@@ -229,6 +234,23 @@ const handleReset = () => {
 const tableRowClassName = ({ row }) => {
   if (row.alert_status === 0) return 'alert-row'
   return ''
+}
+
+// ==================== 检查预警 ====================
+const checkLoading = ref(false)
+
+const handleCheckAlerts = async () => {
+  checkLoading.value = true
+  try {
+    const res = await checkStockAlerts()
+    const count = res.data || 0
+    ElMessage.success(count > 0 ? `检查完成，新增 ${count} 条预警` : '检查完成，暂无新预警')
+    fetchList()
+  } catch (error) {
+    console.error('检查预警失败:', error)
+  } finally {
+    checkLoading.value = false
+  }
 }
 
 // ==================== 处理预警 ====================

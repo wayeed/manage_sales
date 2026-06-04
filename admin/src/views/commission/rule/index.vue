@@ -17,13 +17,14 @@
         style="width: 100%"
       >
         <el-table-column prop="config_key" label="配置键" width="220" show-overflow-tooltip />
-        <el-table-column label="当前值" width="160" align="center">
+        <el-table-column label="当前值" width="120" align="center">
           <template #default="{ row }">
             <span class="value-text">{{ formatConfigValue(row) }}</span>
           </template>
         </el-table-column>
-        <el-table-column prop="remark" label="说明" min-width="240" show-overflow-tooltip />
-        <el-table-column prop="config_type" label="分组" width="120" align="center">
+        <el-table-column prop="remark" label="说明" min-width="200" show-overflow-tooltip />
+        <el-table-column prop="sort" label="排序" width="80" align="center" sortable />
+        <el-table-column prop="config_type" label="分组" width="100" align="center">
           <template #default="{ row }">
             <el-tag :type="getGroupTag(row.config_type)" size="small">
               {{ getGroupLabel(row.config_type) }}
@@ -77,6 +78,15 @@
         <el-form-item v-if="isPercentConfig(currentConfig?.config_key)" label="">
           <span style="color: #909399; font-size: 12px">单位：百分比（%）</span>
         </el-form-item>
+        <el-form-item label="排序" prop="sort">
+          <el-input-number
+            v-model="editForm.sort"
+            :min="0"
+            :max="999"
+            controls-position="right"
+            style="width: 100%"
+          />
+        </el-form-item>
         <el-form-item label="说明">
           <el-input :model-value="currentConfig?.remark" disabled type="textarea" :rows="2" />
         </el-form-item>
@@ -101,19 +111,57 @@ const loading = ref(false)
 const configList = ref([])
 
 const percentKeys = [
-  'single_commission_rate',
-  'multi_commission_rate',
-  'special_commission_rate',
-  'peer_single_rate',
-  'peer_multi_rate',
-  'peer_special_rate',
-  'fund_pool_rate',
-  'manager_team_rate',
-  'store_manager_team_rate',
+  // 用户等级提成比例
+  'commission_rate_level1_single',
+  'commission_rate_level1_multi',
+  'commission_rate_level2_single',
+  'commission_rate_level2_multi',
+  'commission_rate_level3_single',
+  'commission_rate_level3_multi',
+  // 同行提成比例
+  'commission_rate_peer_single',
+  'commission_rate_peer_multi',
+  'commission_rate_peer_special',
+  // 团队分润
+  'fund_pool_extract_rate',
+  'team_share_rate_manager',
+  'team_share_rate_store',
   'referral_reward_rate',
+  // 固定提成
+  'fixed_commission_rate',
 ]
 
 const isPercentConfig = (key) => percentKeys.includes(key)
+
+// 格式化显示：如果是小数(<1)则乘以100显示为百分比
+const formatConfigValue = (row) => {
+  if (isPercentConfig(row.config_key)) {
+    const val = Number(row.config_value)
+    if (val < 1) {
+      return `${(val * 100).toFixed(1)}%`
+    }
+    return `${val}%`
+  }
+  return row.config_value
+}
+
+// 编辑时：将小数转为百分比数值显示
+const toEditValue = (value) => {
+  const val = Number(value)
+  if (val < 1) {
+    return Math.round(val * 10000) / 100 // 保留2位小数
+  }
+  return val
+}
+
+// 保存时：将百分比数值转为小数存储
+const toSaveValue = (value) => {
+  const val = Number(value)
+  if (val > 1) {
+    return (val / 100).toFixed(4) // 转为小数，保留4位精度
+  }
+  return val
+}
 
 const fetchConfigList = async () => {
   loading.value = true
@@ -125,13 +173,6 @@ const fetchConfigList = async () => {
   } finally {
     loading.value = false
   }
-}
-
-const formatConfigValue = (row) => {
-  if (isPercentConfig(row.config_key)) {
-    return `${row.config_value}%`
-  }
-  return row.config_value
 }
 
 const getGroupLabel = (group) => {
@@ -160,6 +201,7 @@ const currentConfig = ref(null)
 
 const editForm = ref({
   value: '',
+  sort: 0,
 })
 
 const editFormRules = {
@@ -168,8 +210,13 @@ const editFormRules = {
 
 const handleEdit = (row) => {
   currentConfig.value = row
+  // 百分比配置：编辑时将小数转为百分比数值显示
+  const editValue = isPercentConfig(row.config_key)
+    ? toEditValue(row.config_value)
+    : row.config_value
   editForm.value = {
-    value: isPercentConfig(row.config_key) ? Number(row.config_value) : row.config_value,
+    value: editValue,
+    sort: row.sort || 0,
   }
   editDialogVisible.value = true
 }
@@ -180,8 +227,13 @@ const handleSubmit = async () => {
 
   submitLoading.value = true
   try {
+    // 百分比配置：保存时将百分比数值转为小数存储
+    const saveValue = isPercentConfig(currentConfig.value.config_key)
+      ? toSaveValue(editForm.value.value)
+      : String(editForm.value.value)
     await updateConfig(currentConfig.value.config_key, {
-      config_value: editForm.value.value,
+      config_value: saveValue,
+      sort: editForm.value.sort,
     })
     ElMessage.success('配置更新成功')
     editDialogVisible.value = false

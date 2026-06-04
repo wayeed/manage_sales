@@ -23,7 +23,7 @@
       <div class="pagination-wrapper">
         <el-pagination
           v-model:current-page="pagination.page"
-          v-model:page-size="pagination.pageSize"
+          v-model:page-size="pagination.page_size"
           :total="pagination.total"
           :page-sizes="[10, 20, 50, 100]"
           layout="total, sizes, prev, pager, next, jumper"
@@ -43,7 +43,7 @@ const loading = ref(false)
 const logList = ref([])
 const pagination = reactive({
   page: 1,
-  pageSize: 20,
+  page_size: 20,
   total: 0,
 })
 
@@ -52,7 +52,7 @@ const fetchLogList = async () => {
   try {
     const params = {
       page: pagination.page,
-      pageSize: pagination.pageSize,
+      page_size: pagination.page_size,
     }
     const res = await getOperationLogs(params)
     if (res.data) {

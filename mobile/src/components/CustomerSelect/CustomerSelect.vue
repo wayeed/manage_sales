@@ -127,6 +127,23 @@
             <text class="cs-add-label">地址</text>
             <input v-model="newCustomer.address" class="cs-add-input" placeholder="请输入地址（选填）" />
           </view>
+          <view class="cs-add-field">
+            <text class="cs-add-label">客户来源</text>
+            <view class="cs-add-radio-group">
+              <view
+                v-for="item in sourceTypeOptions"
+                :key="item.value"
+                class="cs-add-radio"
+                :class="{ 'cs-add-radio--active': newCustomer.source_type === item.value }"
+                @tap="newCustomer.source_type = item.value"
+              >
+                <view class="cs-add-radio-dot">
+                  <view v-if="newCustomer.source_type === item.value" class="cs-add-radio-inner"></view>
+                </view>
+                <text class="cs-add-radio-text">{{ item.label }}</text>
+              </view>
+            </view>
+          </view>
         </view>
         <view class="cs-add-footer">
           <button class="cs-btn cs-btn--cancel" @tap="showAddForm = false">取消</button>
@@ -166,8 +183,14 @@ export default {
     const newCustomer = ref({
       name: '',
       phone: '',
-      address: ''
+      address: '',
+      source_type: 0
     })
+    const sourceTypeOptions = [
+      { value: 0, label: '自然进店' },
+      { value: 1, label: '主动邀约' },
+      { value: 2, label: '同行带单' }
+    ]
 
     watch(() => props.visible, (val) => {
       if (val) {
@@ -185,14 +208,21 @@ export default {
     }
 
     const fetchList = async () => {
-      if (loading.value || !hasMore.value) return
+      if (loading.value && !hasMore.value) return
       loading.value = true
       try {
-        const res = await getCustomerList({
-          keyword: keyword.value,
+        const params = {
           page: page.value,
           page_size: pageSize
-        })
+        }
+        // 无关键字时，传递当前用户ID过滤自己的客户
+        if (!keyword.value) {
+          params.salesman_id = userStore.userInfo?.id
+        } else {
+          // 有关键字时，传递关键字用于精确匹配
+          params.keyword = keyword.value
+        }
+        const res = await getCustomerList(params)
         const data = res.data?.list || res.data?.records || []
         if (page.value === 1) {
           list.value = data
@@ -265,7 +295,8 @@ export default {
         const res = await createCustomer({
           customer_name: newCustomer.value.name,
           phone: newCustomer.value.phone,
-          address: newCustomer.value.address
+          address: newCustomer.value.address,
+          source_type: newCustomer.value.source_type
         })
         uni.showToast({ title: '新增成功', icon: 'success' })
         showAddForm.value = false
@@ -286,6 +317,7 @@ export default {
       selectedCustomer,
       showAddForm,
       newCustomer,
+      sourceTypeOptions,
       handleSearch,
       loadMore,
       canSelect,
@@ -661,6 +693,60 @@ export default {
   padding: 0 24rpx;
   font-size: 28rpx;
   color: #333;
+}
+
+/* 来源类型单选 */
+.cs-add-radio-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16rpx;
+}
+
+.cs-add-radio {
+  display: flex;
+  align-items: center;
+  gap: 10rpx;
+  padding: 16rpx 24rpx;
+  background: #f7f7f7;
+  border-radius: 12rpx;
+  border: 2rpx solid transparent;
+  transition: all 0.2s;
+
+  &--active {
+    background: #e6f4ff;
+    border-color: #1890ff;
+  }
+}
+
+.cs-add-radio-dot {
+  width: 36rpx;
+  height: 36rpx;
+  border-radius: 50%;
+  border: 2rpx solid #ccc;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  .cs-add-radio--active & {
+    border-color: #1890ff;
+  }
+}
+
+.cs-add-radio-inner {
+  width: 20rpx;
+  height: 20rpx;
+  border-radius: 50%;
+  background: #1890ff;
+}
+
+.cs-add-radio-text {
+  font-size: 28rpx;
+  color: #333;
+
+  .cs-add-radio--active & {
+    color: #1890ff;
+    font-weight: 500;
+  }
 }
 
 .cs-add-footer {

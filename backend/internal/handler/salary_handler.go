@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"fmt"
 	"strconv"
 
 	"furniture-commission/internal/service"
@@ -167,6 +168,37 @@ func (h *SalaryHandler) GenerateSalary(c *gin.Context) {
 	}
 
 	Success(c, nil)
+}
+
+// ExportSalarySlip 导出工资条
+// @Summary      导出工资条
+// @Description  导出指定工资记录的工资条文件
+// @Tags         工资管理
+// @Produce      application/octet-stream
+// @Param        id   path  int64  true  "工资记录ID"
+// @Success      200  "工资条文件"
+// @Failure      401  {object}  handler.Response  "未认证"
+// @Security     BearerAuth
+// @Router       /salaries/{id}/export [get]
+func (h *SalaryHandler) ExportSalarySlip(c *gin.Context) {
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		Error(c, 400, "无效的工资记录ID")
+		return
+	}
+
+	data, filename, err := h.salaryService.ExportSalarySlip(id)
+	if err != nil {
+		if appErr, ok := err.(*service.AppError); ok {
+			Error(c, appErr.Code, appErr.Message)
+			return
+		}
+		Error(c, 500, "导出工资条失败")
+		return
+	}
+
+	c.Header("Content-Disposition", fmt.Sprintf("attachment; filename*=UTF-8''%s", filename))
+	c.Data(200, "application/octet-stream", data)
 }
 
 // ConfirmSalary 审核确认工资

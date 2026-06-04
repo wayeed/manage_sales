@@ -81,7 +81,7 @@ func (r *SystemConfigRepository) Set(key, value, configType, remark string) erro
 // GetAll 获取所有配置
 func (r *SystemConfigRepository) GetAll() ([]models.SystemConfig, error) {
 	var configs []models.SystemConfig
-	err := r.db.Order("id ASC").Find(&configs).Error
+	err := r.db.Order("sort ASC, id ASC").Find(&configs).Error
 	if err != nil {
 		return nil, err
 	}

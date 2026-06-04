@@ -33,6 +33,9 @@
             <el-option label="盘亏" :value="6" />
             <el-option label="礼品出库" :value="7" />
             <el-option label="礼品入库" :value="8" />
+            <el-option label="库存锁定" :value="9" />
+            <el-option label="库存解锁" :value="10" />
+            <el-option label="锁定转出库" :value="11" />
           </el-select>
         </el-form-item>
         <el-form-item label="时间范围">
@@ -92,8 +95,8 @@
         </el-table-column>
         <el-table-column label="数量" width="80" align="center">
           <template #default="{ row }">
-            <span :class="row.quantity > 0 ? 'text-success' : 'text-danger'">
-              {{ row.quantity > 0 ? '+' : '' }}{{ row.quantity }}
+            <span :class="isOutType(row.transaction_type) ? 'text-danger' : 'text-success'">
+              {{ isOutType(row.transaction_type) ? '-' : '+' }}{{ Math.abs(row.quantity) }}
             </span>
           </template>
         </el-table-column>
@@ -212,6 +215,9 @@ const getTypeLabel = (type) => {
     6: '盘亏',
     7: '礼品出库',
     8: '礼品入库',
+    9: '库存锁定',
+    10: '库存解锁',
+    11: '锁定转出库',
   }
   return map[type] ?? type ?? '未知'
 }
@@ -226,9 +232,15 @@ const getTypeTag = (type) => {
     6: 'danger',
     7: 'warning',
     8: '',
+    9: 'info',
+    10: 'success',
+    11: 'warning',
   }
   return map[type] || 'info'
 }
+
+// 判断是否为出库类型（库存减少）
+const isOutType = (type) => [2, 3, 6, 7, 9, 11].includes(type)
 
 const formatTime = (time) => {
   if (!time) return '-'

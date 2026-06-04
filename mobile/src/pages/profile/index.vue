@@ -7,9 +7,9 @@
           <text class="avatar-text">{{ avatarText }}</text>
         </view>
         <view class="user-detail">
-          <text class="user-name">{{ userInfo.name || userInfo.username || '未登录' }}</text>
-          <text class="user-role">{{ userInfo.roleName || '销售人员' }}</text>
-          <text class="user-code">工号: {{ userInfo.employeeNo || '--' }}</text>
+          <text class="user-name">{{ userInfo.real_name || userInfo.username || '未登录' }}</text>
+          <text class="user-role">{{ roleName }}</text>
+          <text class="user-code">{{ userInfo.phone || '' }}</text>
         </view>
       </view>
     </view>
@@ -33,7 +33,7 @@
         <view class="menu-icon menu-icon--blue">
           <text class="menu-icon-text">P</text>
         </view>
-        <text class="menu-text">编辑资料</text>
+        <text class="menu-text">个人资料</text>
         <text class="menu-arrow">></text>
       </view>
       <view class="menu-item" @tap="goTo('/pages/profile/password')">
@@ -57,6 +57,15 @@
         <text class="menu-text">我的申请</text>
         <text class="menu-arrow">></text>
       </view>
+      <!-- #ifdef APP-PLUS -->
+      <view class="menu-item" @tap="checkAppUpdate">
+        <view class="menu-icon menu-icon--yellow">
+          <text class="menu-icon-text">U</text>
+        </view>
+        <text class="menu-text">检查更新</text>
+        <text class="menu-arrow">></text>
+      </view>
+      <!-- #endif -->
       <view class="menu-item" @tap="showAbout">
         <view class="menu-icon menu-icon--green">
           <text class="menu-icon-text">A</text>
@@ -83,7 +92,8 @@
 <script>
 import { computed, ref, onMounted } from 'vue'
 import { useUserStore } from '../../store/user'
-import { getOverview } from '../../api/performance'
+import { getPerformance } from '../../api/performance'
+import { checkUpdate } from '../../utils/update'
 import CustomTabBar from '../../components/CustomTabBar.vue'
 
 export default {
@@ -97,8 +107,16 @@ export default {
     })
 
     const avatarText = computed(() => {
-      const name = userStore.userInfo?.name || userStore.userInfo?.username || '?'
+      const name = userStore.userInfo?.real_name || userStore.userInfo?.username || '?'
       return name.charAt(0).toUpperCase()
+    })
+
+    const roleName = computed(() => {
+      const roles = userStore.userInfo?.roles || []
+      if (roles.length > 0) {
+        return roles.map(r => r.role_name).join('、')
+      }
+      return '销售人员'
     })
 
     const goTo = (url) => {
@@ -125,9 +143,27 @@ export default {
       })
     }
 
+    // 检查APP更新
+    const checkAppUpdate = () => {
+      uni.showLoading({ title: '检查中...', mask: true })
+      checkUpdate({
+        silent: true,
+        onUpdate: () => uni.hideLoading(),
+        onNoUpdate: () => {
+          uni.hideLoading()
+          uni.showToast({ title: '已是最新版本', icon: 'none' })
+        },
+        onError: () => uni.hideLoading()
+      })
+    }
+
     const loadMonthData = async () => {
       try {
-        const res = await getOverview()
+        const now = new Date()
+        const res = await getPerformance({
+          year: now.getFullYear(),
+          month: now.getMonth() + 1
+        })
         monthData.value = res.data || {}
       } catch (e) {
         monthData.value = { totalSales: '0', totalCommission: '0' }
@@ -141,7 +177,7 @@ export default {
       }
     })
 
-    return { userInfo, avatarText, monthData, goTo, showAbout, handleLogout }
+    return { userInfo, avatarText, roleName, monthData, goTo, showAbout, checkAppUpdate, handleLogout }
   }
 }
 </script>
@@ -150,6 +186,14 @@ export default {
 .profile-page {
   min-height: 100vh;
   background-color: #f5f5f5;
+}
+
+/* 卡片基础样式 */
+.card {
+  background-color: #ffffff;
+  border-radius: 16rpx;
+  padding: 24rpx;
+  box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.06);
 }
 
 .profile-header {
@@ -320,6 +364,10 @@ export default {
 
   .menu-icon--cyan & {
     color: #13c2c2;
+  }
+
+  .menu-icon--yellow & {
+    color: #faad14;
   }
 }
 

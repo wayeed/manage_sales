@@ -95,11 +95,11 @@ func TestSetConfig_DecimalValue(t *testing.T) {
 	configSvc := svc.NewConfigService(configRepo)
 
 	// 设置小数配置
-	err := configSvc.Set("commission_rate_single", "0.20", "decimal", "单品提成比例")
+	err := configSvc.Set("commission_rate_level1_single", "0.08", "decimal", "初级单品提成比例")
 	assert.NoError(t, err)
 
-	val, _ := configSvc.Get("commission_rate_single")
-	assert.Equal(t, "0.20", val)
+	val, _ := configSvc.Get("commission_rate_level1_single")
+	assert.Equal(t, "0.08", val)
 }
 
 // ========== TestGetCommissionRates ==========
@@ -116,9 +116,12 @@ func TestGetCommissionRates_Defaults(t *testing.T) {
 	assert.NotNil(t, rates)
 
 	// 验证默认值
-	assert.True(t, rates["commission_rate_single"].Equal(decimal.NewFromFloat(0.20)))
-	assert.True(t, rates["commission_rate_multi"].Equal(decimal.NewFromFloat(0.22)))
-	assert.True(t, rates["commission_rate_special"].Equal(decimal.NewFromFloat(0.15)))
+	assert.True(t, rates["commission_rate_level1_single"].Equal(decimal.NewFromFloat(0.08)))
+	assert.True(t, rates["commission_rate_level1_multi"].Equal(decimal.NewFromFloat(0.10)))
+	assert.True(t, rates["commission_rate_level2_single"].Equal(decimal.NewFromFloat(0.18)))
+	assert.True(t, rates["commission_rate_level2_multi"].Equal(decimal.NewFromFloat(0.22)))
+	assert.True(t, rates["commission_rate_level3_single"].Equal(decimal.NewFromFloat(0.35)))
+	assert.True(t, rates["commission_rate_level3_multi"].Equal(decimal.NewFromFloat(0.38)))
 	assert.True(t, rates["commission_rate_peer_single"].Equal(decimal.NewFromFloat(0.10)))
 	assert.True(t, rates["commission_rate_peer_multi"].Equal(decimal.NewFromFloat(0.12)))
 	assert.True(t, rates["commission_rate_peer_special"].Equal(decimal.NewFromFloat(0.08)))
@@ -135,16 +138,16 @@ func TestGetCommissionRates_CustomValues(t *testing.T) {
 	configSvc := svc.NewConfigService(configRepo)
 
 	// 自定义提成比例
-	configSvc.Set("commission_rate_single", "0.25", "decimal", "单品提成比例")
-	configSvc.Set("commission_rate_multi", "0.28", "decimal", "多品提成比例")
+	configSvc.Set("commission_rate_level1_single", "0.10", "decimal", "初级单品提成比例")
+	configSvc.Set("commission_rate_level1_multi", "0.12", "decimal", "初级多品提成比例")
 
 	rates, err := configSvc.GetCommissionRates()
 	assert.NoError(t, err)
 
-	assert.True(t, rates["commission_rate_single"].Equal(decimal.NewFromFloat(0.25)))
-	assert.True(t, rates["commission_rate_multi"].Equal(decimal.NewFromFloat(0.28)))
+	assert.True(t, rates["commission_rate_level1_single"].Equal(decimal.NewFromFloat(0.10)))
+	assert.True(t, rates["commission_rate_level1_multi"].Equal(decimal.NewFromFloat(0.12)))
 	// 未设置的仍使用默认值
-	assert.True(t, rates["commission_rate_special"].Equal(decimal.NewFromFloat(0.15)))
+	assert.True(t, rates["commission_rate_level2_single"].Equal(decimal.NewFromFloat(0.18)))
 }
 
 // ========== TestGetAllConfigs ==========
@@ -185,8 +188,8 @@ func TestGetRate(t *testing.T) {
 	configSvc := svc.NewConfigService(configRepo)
 
 	// 使用默认值
-	rate := configSvc.GetRate("commission_rate_single")
-	assert.True(t, rate.Equal(decimal.NewFromFloat(0.20)))
+	rate := configSvc.GetRate("commission_rate_level1_single")
+	assert.True(t, rate.Equal(decimal.NewFromFloat(0.08)))
 
 	// 不存在的key返回0
 	rate = configSvc.GetRate("nonexistent_rate")

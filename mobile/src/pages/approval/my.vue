@@ -24,20 +24,41 @@
         class="approval-card card"
       >
         <view class="approval-header">
-          <text class="approval-type">跟进申请</text>
+          <text class="approval-type">{{ getApprovalTypeText(item.approval_type) }}</text>
           <view class="tag" :class="getStatusClass(item.status)">
             <text>{{ getStatusText(item.status) }}</text>
           </view>
         </view>
 
         <view class="approval-body">
+          <!-- 打印审批显示订单信息，跟进申请显示客户信息 -->
+          <template v-if="item.approval_type === 2">
+            <view class="approval-row">
+              <text class="approval-label">订单号</text>
+              <text class="approval-value">{{ item.order?.order_no || '--' }}</text>
+            </view>
+            <view class="approval-row">
+              <text class="approval-label">客户</text>
+              <text class="approval-value">{{ item.order?.customer_name || '--' }}</text>
+            </view>
+            <view class="approval-row">
+              <text class="approval-label">手机号</text>
+              <text class="approval-value">{{ item.order?.customer_phone || '--' }}</text>
+            </view>
+          </template>
+          <template v-else>
+            <view class="approval-row">
+              <text class="approval-label">客户</text>
+              <text class="approval-value">{{ item.customer?.customer_name || '--' }}</text>
+            </view>
+            <view class="approval-row">
+              <text class="approval-label">手机号</text>
+              <text class="approval-value">{{ item.customer?.phone || '--' }}</text>
+            </view>
+          </template>
           <view class="approval-row">
-            <text class="approval-label">客户</text>
-            <text class="approval-value">{{ item.customer?.customer_name || '--' }}</text>
-          </view>
-          <view class="approval-row">
-            <text class="approval-label">手机号</text>
-            <text class="approval-value">{{ item.customer?.phone || '--' }}</text>
+            <text class="approval-label">审批人</text>
+            <text class="approval-value">{{ item.approver?.real_name || item.approver?.username || '--' }}</text>
           </view>
           <view class="approval-row">
             <text class="approval-label">申请时间</text>
@@ -47,11 +68,7 @@
             <text class="approval-label">备注</text>
             <text class="approval-value">{{ item.remark }}</text>
           </view>
-          <view v-if="item.status === 1 && item.approver" class="approval-row">
-            <text class="approval-label">审批人</text>
-            <text class="approval-value">{{ item.approver?.real_name || item.approver?.username || '--' }}</text>
-          </view>
-          <view v-if="item.status === 1 && item.approved_at" class="approval-row">
+          <view v-if="item.approved_at" class="approval-row">
             <text class="approval-label">审批时间</text>
             <text class="approval-value">{{ formatTime(item.approved_at) }}</text>
           </view>
@@ -123,12 +140,11 @@ export default {
       try {
         const status = this.tabs[this.currentTab].status
         const params = { page: this.page, page_size: 10 }
-        const res = await getMyApplications(params)
-        let list = res.data?.list || res.data?.records || []
-        // 前端过滤状态
         if (status !== null) {
-          list = list.filter(item => item.status === status)
+          params.status = status
         }
+        const res = await getMyApplications(params)
+        const list = res.data?.list || res.data?.records || []
         if (this.page === 1) {
           this.approvalList = list
         } else {
@@ -157,6 +173,11 @@ export default {
     getStatusClass(status) {
       const map = { 0: 'tag-warning', 1: 'tag-success', 2: 'tag-danger' }
       return map[status] || ''
+    },
+
+    getApprovalTypeText(type) {
+      const map = { 1: '跟进申请', 2: '打印审批' }
+      return map[type] || '未知'
     },
 
     handleCancel(item) {

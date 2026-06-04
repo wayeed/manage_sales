@@ -14,19 +14,19 @@
     <!-- 4个统计卡片 -->
     <view class="stats-grid">
       <view class="stat-card card">
-        <text class="stat-value">{{ stats.totalSales || '0.00' }}</text>
+        <text class="stat-value">{{ formatAmount(stats.totalSales) }}</text>
         <text class="stat-label">本月销售额(元)</text>
       </view>
       <view class="stat-card card">
-        <text class="stat-value stat-value--green">{{ stats.totalProfit || '0.00' }}</text>
+        <text class="stat-value stat-value--green">{{ formatAmount(stats.totalProfit) }}</text>
         <text class="stat-label">本月利润(元)</text>
       </view>
       <view class="stat-card card">
-        <text class="stat-value stat-value--blue">{{ stats.totalCommission || '0.00' }}</text>
+        <text class="stat-value stat-value--blue">{{ formatAmount(stats.totalCommission) }}</text>
         <text class="stat-label">本月提成(元)</text>
       </view>
       <view class="stat-card card">
-        <text class="stat-value stat-value--orange">{{ stats.commissionRank || '--' }}</text>
+        <text class="stat-value stat-value--orange">{{ formatRank(stats.commissionRank) }}</text>
         <text class="stat-label">提成排名</text>
       </view>
     </view>
@@ -38,7 +38,7 @@
         <view class="chart-bar-item" v-for="(item, index) in commissionBreakdown" :key="index">
           <view class="chart-bar-header">
             <text class="chart-bar-label">{{ item.label }}</text>
-            <text class="chart-bar-value">{{ item.value }}元</text>
+            <text class="chart-bar-value">{{ formatAmount(item.value) }}元</text>
           </view>
           <view class="chart-bar-track">
             <view
@@ -62,11 +62,21 @@
           :key="item.id || index"
           class="commission-item"
         >
-          <view class="commission-left">
-            <text class="commission-order">{{ item.orderNo || '--' }}</text>
-            <text class="commission-type">{{ item.typeName || '销售提成' }}</text>
+          <view class="commission-main">
+            <view class="commission-header">
+              <text class="commission-order">{{ getOrderNo(item) }}</text>
+              <text class="commission-amount">+{{ formatAmount(item.amount) }}元</text>
+            </view>
+            <view class="commission-meta">
+              <text class="commission-type">{{ getCommissionTypeName(item.commission_type) }}</text>
+              <text class="commission-dot">·</text>
+              <text class="commission-time">{{ formatDate(item.created_at) }}</text>
+              <text class="commission-dot">·</text>
+              <view class="commission-status-tag" :class="getStatusClass(item.status)">
+                <text>{{ getStatusName(item.status) }}</text>
+              </view>
+            </view>
           </view>
-          <text class="commission-amount">+{{ item.amount || '0.00' }}元</text>
         </view>
       </view>
       <view v-else class="empty-state">
@@ -77,7 +87,7 @@
     <!-- 底部占位 -->
     <view style="height: 120rpx;"></view>
 
-    <CustomTabBar :current="2" />
+    <CustomTabBar :current="3" />
   </view>
 </template>
 
@@ -114,6 +124,66 @@ export default {
       uni.navigateTo({ url })
     }
 
+    // 格式化金额
+    const formatAmount = (val) => {
+      if (val === undefined || val === null || val === '') return '0.00'
+      const num = parseFloat(val)
+      if (isNaN(num)) return '0.00'
+      return num.toFixed(2)
+    }
+
+    // 格式化排名
+    const formatRank = (rank) => {
+      if (!rank || rank <= 0) return '--'
+      return rank
+    }
+
+    // 格式化日期
+    const formatDate = (dateStr) => {
+      if (!dateStr) return '--'
+      const date = new Date(dateStr)
+      if (isNaN(date.getTime())) return dateStr
+      return `${date.getMonth() + 1}/${date.getDate()}`
+    }
+
+    // 获取订单号
+    const getOrderNo = (item) => {
+      return item.order?.order_no || item.order_id || '--'
+    }
+
+    // 提成类型名称映射
+    const getCommissionTypeName = (type) => {
+      const map = {
+        1: '业务员提成',
+        2: '同行分成',
+        3: '主管团队分润',
+        4: '店长团队分润',
+        5: '基金池奖励',
+        6: '老带新奖励'
+      }
+      return map[type] || '销售提成'
+    }
+
+    // 提成状态名称映射
+    const getStatusName = (status) => {
+      const map = {
+        0: '待回款',
+        1: '可发放',
+        2: '已发放'
+      }
+      return map[status] || '未知'
+    }
+
+    // 提成状态样式类
+    const getStatusClass = (status) => {
+      const map = {
+        0: 'status-pending',
+        1: 'status-ready',
+        2: 'status-paid'
+      }
+      return map[status] || 'status-pending'
+    }
+
     // 提成构成数据
     const commissionBreakdown = computed(() => {
       const items = [
@@ -122,10 +192,10 @@ export default {
         { label: '基金池奖励', value: stats.value.fundReward || 0, color: '#faad14' },
         { label: '老带新奖励', value: stats.value.mentorReward || 0, color: '#722ed1' }
       ]
-      const maxVal = Math.max(...items.map(i => i.value), 1)
+      const maxVal = Math.max(...items.map(i => parseFloat(i.value) || 0), 1)
       return items.map(item => ({
         ...item,
-        percent: Math.round((item.value / maxVal) * 100)
+        percent: Math.round(((parseFloat(item.value) || 0) / maxVal) * 100)
       }))
     })
 
@@ -137,11 +207,16 @@ export default {
         })
         stats.value = res.data || {}
       } catch (e) {
+        console.error('加载业绩数据失败:', e)
         stats.value = {
           totalSales: '0.00',
           totalProfit: '0.00',
           totalCommission: '0.00',
-          commissionRank: '--'
+          commissionRank: 0,
+          salesCommission: '0.00',
+          teamShare: '0.00',
+          fundReward: '0.00',
+          mentorReward: '0.00'
         }
       }
 
@@ -153,6 +228,7 @@ export default {
         })
         recentCommissions.value = res.data?.records || res.data?.list || []
       } catch (e) {
+        console.error('加载提成记录失败:', e)
         recentCommissions.value = []
       }
     }
@@ -169,7 +245,14 @@ export default {
       recentCommissions,
       commissionBreakdown,
       changeMonth,
-      goTo
+      goTo,
+      formatAmount,
+      formatRank,
+      formatDate,
+      getOrderNo,
+      getCommissionTypeName,
+      getStatusName,
+      getStatusClass
     }
   }
 }
@@ -179,6 +262,12 @@ export default {
 .performance-page {
   min-height: 100vh;
   background-color: #f5f5f5;
+}
+
+.card {
+  background-color: #ffffff;
+  border-radius: 16rpx;
+  box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.04);
 }
 
 .month-selector {
@@ -208,8 +297,8 @@ export default {
 
 .month-text {
   font-size: 32rpx;
-  font-weight: bold;
-  color: #333333;
+  font-weight: 600;
+  color: #1a1a1a;
   margin: 0 40rpx;
 }
 
@@ -231,8 +320,8 @@ export default {
 
 .stat-value {
   font-size: 36rpx;
-  font-weight: bold;
-  color: #333333;
+  font-weight: 700;
+  color: #1a1a1a;
   margin-bottom: 8rpx;
 
   &--green {
@@ -244,7 +333,7 @@ export default {
   }
 
   &--orange {
-    color: #faad14;
+    color: #fa8c16;
   }
 }
 
@@ -255,6 +344,7 @@ export default {
 
 .section {
   margin: 24rpx;
+  padding: 32rpx;
 }
 
 .section-header {
@@ -266,20 +356,24 @@ export default {
 
 .section-title {
   font-size: 32rpx;
-  font-weight: bold;
-  color: #333333;
+  font-weight: 600;
+  color: #1a1a1a;
 }
 
 .section-more {
   font-size: 24rpx;
   color: #999999;
+
+  &:active {
+    color: #1890ff;
+  }
 }
 
 /* 提成构成进度条 */
 .chart-area {
   display: flex;
   flex-direction: column;
-  gap: 20rpx;
+  gap: 24rpx;
 }
 
 .chart-bar-item {
@@ -291,7 +385,7 @@ export default {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 8rpx;
+  margin-bottom: 12rpx;
 }
 
 .chart-bar-label {
@@ -301,7 +395,7 @@ export default {
 
 .chart-bar-value {
   font-size: 26rpx;
-  color: #333333;
+  color: #1a1a1a;
   font-weight: 500;
 }
 
@@ -318,28 +412,45 @@ export default {
   transition: width 0.3s ease;
 }
 
-/* 提成记录列表 */
+/* 提成记录列表 - 优化布局 */
 .commission-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 20rpx 0;
-  border-bottom: 1rpx solid #eeeeee;
+  padding: 24rpx 0;
+  border-bottom: 1rpx solid #f0f0f0;
 
   &:last-child {
     border-bottom: none;
   }
 }
 
-.commission-left {
+.commission-main {
   display: flex;
   flex-direction: column;
+  gap: 12rpx;
+}
+
+.commission-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
 
 .commission-order {
-  font-size: 26rpx;
-  color: #999999;
-  margin-bottom: 6rpx;
+  font-size: 28rpx;
+  color: #333333;
+  font-weight: 500;
+}
+
+.commission-amount {
+  font-size: 30rpx;
+  font-weight: 700;
+  color: #ff4d4f;
+}
+
+.commission-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8rpx;
 }
 
 .commission-type {
@@ -347,9 +458,52 @@ export default {
   color: #666666;
 }
 
-.commission-amount {
-  font-size: 30rpx;
-  font-weight: bold;
-  color: #ff4d4f;
+.commission-dot {
+  font-size: 24rpx;
+  color: #cccccc;
+}
+
+.commission-time {
+  font-size: 24rpx;
+  color: #999999;
+}
+
+/* 状态标签 */
+.commission-status-tag {
+  padding: 4rpx 12rpx;
+  border-radius: 6rpx;
+  font-size: 22rpx;
+
+  text {
+    font-weight: 500;
+  }
+}
+
+.status-pending {
+  background-color: #fff7e6;
+  color: #fa8c16;
+}
+
+.status-ready {
+  background-color: #e6f7ff;
+  color: #1890ff;
+}
+
+.status-paid {
+  background-color: #f6ffed;
+  color: #52c41a;
+}
+
+/* 空状态 */
+.empty-state {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 60rpx 0;
+
+  &__text {
+    font-size: 28rpx;
+    color: #999999;
+  }
 }
 </style>

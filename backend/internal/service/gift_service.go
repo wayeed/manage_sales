@@ -41,11 +41,12 @@ type AddGiftStockRequest struct {
 
 // ListGiftRequest 礼品列表查询请求
 type ListGiftRequest struct {
-	StoreID int64 `form:"store_id" example:1`
-	Status *int8 `form:"status" example:1`
-	Keyword string `form:"keyword" example:"抱枕"`
-	Page int `form:"page" example:1`
-	PageSize int `form:"page_size" example:10`
+	StoreID     int64  `form:"store_id" example:1"`
+	WarehouseID int64  `form:"warehouse_id" example:1"`
+	Status      *int8  `form:"status" example:1`
+	Keyword     string `form:"keyword" example:"抱枕"`
+	Page        int    `form:"page" example:1"`
+	PageSize    int    `form:"page_size" example:10"`
 }
 
 // GiftService 礼品服务
@@ -166,6 +167,63 @@ func (s *GiftService) List(req *ListGiftRequest) (*PageResult, error) {
 		Order("id DESC").
 		Find(&gifts).Error; err != nil {
 		return nil, &AppError{Code: apperrors.InternalError, Message: "查询礼品列表失败"}
+	}
+
+	// 如果指定了仓库，查询各礼品在该仓库的库存
+	if req.WarehouseID > 0 && len(gifts) > 0 {
+		giftIDs := make([]int64, len(gifts))
+		for i, g := range gifts {
+			giftIDs[i] = g.ID
+		}
+
+		var warehouseStocks []models.WarehouseGiftStock
+		s.db.Where("warehouse_id = ? AND gift_id IN ?", req.WarehouseID, giftIDs).
+			Preload("Warehouse").
+			Find(&warehouseStocks)
+
+		// 构建礼品ID到仓库库存的映射
+		stockMap := make(map[int64]models.WarehouseGiftStock)
+		for _, ws := range warehouseStocks {
+			stockMap[ws.GiftID] = ws
+		}
+
+		// 将仓库库存信息附加到结果中（通过 map 返回）
+		result := make([]map[string]interface{}, len(gifts))
+		for i, g := range gifts {
+			item := map[string]interface{}{
+				"id":             g.ID,
+				"store_id":       g.StoreID,
+				"gift_code":      g.GiftCode,
+				"gift_name":      g.GiftName,
+				"gift_image":     g.GiftImage,
+				"cost_price":     g.CostPrice,
+				"stock_quantity": g.StockQuantity,
+				"warning_stock":  g.WarningStock,
+				"status":         g.Status,
+				"created_at":     g.CreatedAt,
+				"updated_at":     g.UpdatedAt,
+			}
+			if ws, ok := stockMap[g.ID]; ok {
+				item["warehouse_stock"] = ws.StockQuantity
+				item["warehouse_available"] = ws.AvailableQuantity
+				item["warehouse_locked"] = ws.LockedQuantity
+				if ws.Warehouse != nil {
+					item["warehouse_name"] = ws.Warehouse.WarehouseName
+				}
+			} else {
+				item["warehouse_stock"] = 0
+				item["warehouse_available"] = 0
+				item["warehouse_locked"] = 0
+			}
+			result[i] = item
+		}
+
+		return &PageResult{
+			List:     result,
+			Total:    total,
+			Page:     page,
+			PageSize: pageSize,
+		}, nil
 	}
 
 	return &PageResult{

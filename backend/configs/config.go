@@ -11,6 +11,8 @@ type Config struct {
 	Database DatabaseConfig `yaml:"database"`
 	JWT      JWTConfig      `yaml:"jwt"`
 	Log      LogConfig      `yaml:"log"`
+	CORS     CORSConfig     `yaml:"cors"`
+	Upload   UploadConfig   `yaml:"upload"`
 }
 
 type ServerConfig struct {
@@ -36,6 +38,15 @@ type JWTConfig struct {
 type LogConfig struct {
 	Level string `yaml:"level"`
 	File  string `yaml:"file"`
+}
+
+type CORSConfig struct {
+	AllowedOrigins []string `yaml:"allowed_origins"`
+}
+
+type UploadConfig struct {
+	Dir     string `yaml:"dir"`
+	BaseURL string `yaml:"base_url"`
 }
 
 var GlobalConfig *Config

@@ -91,21 +91,36 @@ const fetchInventoryData = async () => {
   try {
     const res = await getInventoryAnalysis()
     if (res.data) {
-      summary.totalSku = res.data.totalSku || 0
-      summary.alertCount = res.data.alertCount || 0
-      summary.slowMovingCount = res.data.slowMovingCount || 0
+      // 适配后端下划线命名到前端驼峰命名
+      summary.totalSku = res.data.total_skus || 0
+      summary.alertCount = res.data.low_stock_stats?.total_alerts || 0
+      summary.slowMovingCount = (res.data.slow_moving_products || []).length
 
-      turnoverXData.value = res.data.turnoverMonths || []
+      // 周转率：后端只返回当前值，没有历史趋势
+      // 使用当前周转率生成一个单点数据
+      const turnoverRate = res.data.turnover_rate || 0
+      turnoverXData.value = ['当前']
       turnoverSeriesData.value = [
         {
           name: '周转率',
-          data: res.data.turnoverRates || [],
+          data: [turnoverRate],
           itemStyle: { color: '#1890ff' },
           areaStyle: { color: 'rgba(24,144,255,0.1)' },
         },
       ]
 
-      slowMovingList.value = res.data.slowMovingList || []
+      // 滞销商品列表
+      const slowMovingProducts = res.data.slow_moving_products || []
+      slowMovingList.value = slowMovingProducts.map(item => ({
+        productName: item.product_name || item.sku_name,
+        sku: `SKU-${item.sku_id}`,
+        category: '-',
+        stock: item.stock_qty || 0,
+        stockValue: item.stock_value || 0,
+        lastSaleDate: `未出库${item.last_out_days}天`,
+        unsoldDays: item.last_out_days || 0,
+        suggestion: item.last_out_days > 180 ? '建议促销清仓' : '建议降价处理',
+      }))
     }
   } catch (error) {
     console.error('获取库存分析失败:', error)

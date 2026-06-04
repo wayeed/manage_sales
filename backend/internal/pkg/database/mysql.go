@@ -47,13 +47,9 @@ func InitDB(cfg *configs.DatabaseConfig) error {
 		return fmt.Errorf("failed to ping database: %w", err)
 	}
 
-	// 自动迁移新增的表（不会修改已有表结构）
-	if err := DB.AutoMigrate(
-		&models.CustomerFollowUp{},
-		&models.FollowUpApproval{},
-	); err != nil {
-		fmt.Printf("[WARN] AutoMigrate failed: %v\n", err)
-	}
+	// 自动迁移新增的表（只创建不存在的表，不修改已有表结构）
+	// 注意：GORM AutoMigrate 会清除 MySQL 的 COMMENT，所以只用于创建新表
+	autoMigrateNewTablesOnly()
 
 	// 为已存在的表添加新列
 	migrateColumns()
@@ -63,19 +59,197 @@ func InitDB(cfg *configs.DatabaseConfig) error {
 
 // migrateColumns 为已存在的表添加新列或修改列类型
 func migrateColumns() {
-	// 添加 orders.is_draft 列
-	if err := DB.Migrator().AddColumn(&models.Order{}, "is_draft"); err != nil {
-		fmt.Printf("[INFO] AddColumn is_draft: %v\n", err)
+	// 添加 orders.is_draft 列（如果不存在）
+	if !DB.Migrator().HasColumn(&models.Order{}, "is_draft") {
+		if err := DB.Migrator().AddColumn(&models.Order{}, "is_draft"); err != nil {
+			fmt.Printf("[ERROR] AddColumn is_draft: %v\n", err)
+		} else {
+			fmt.Println("[INFO] AddColumn is_draft: success")
+		}
 	}
-	// 添加 customers.salesman_id 列
-	if err := DB.Migrator().AddColumn(&models.Customer{}, "salesman_id"); err != nil {
-		fmt.Printf("[INFO] AddColumn salesman_id: %v\n", err)
+	// 添加 customers.salesman_id 列（如果不存在）
+	if !DB.Migrator().HasColumn(&models.Customer{}, "salesman_id") {
+		if err := DB.Migrator().AddColumn(&models.Customer{}, "salesman_id"); err != nil {
+			fmt.Printf("[ERROR] AddColumn salesman_id: %v\n", err)
+		} else {
+			fmt.Println("[INFO] AddColumn salesman_id: success")
+		}
+	}
+	// 添加 customers.original_phone 列（如果不存在）
+	if !DB.Migrator().HasColumn(&models.Customer{}, "original_phone") {
+		if err := DB.Migrator().AddColumn(&models.Customer{}, "original_phone"); err != nil {
+			fmt.Printf("[ERROR] AddColumn original_phone: %v\n", err)
+		} else {
+			fmt.Println("[INFO] AddColumn original_phone: success")
+		}
+	}
+	// 添加 warehouse_stocks.in_transit_quantity 列（如果不存在）
+	if !DB.Migrator().HasColumn(&models.WarehouseStock{}, "in_transit_quantity") {
+		if err := DB.Migrator().AddColumn(&models.WarehouseStock{}, "in_transit_quantity"); err != nil {
+			fmt.Printf("[ERROR] AddColumn in_transit_quantity: %v\n", err)
+		} else {
+			fmt.Println("[INFO] AddColumn in_transit_quantity: success")
+		}
+	}
+	// 添加 warehouse_stocks.pending_quantity 列（如果不存在）
+	if !DB.Migrator().HasColumn(&models.WarehouseStock{}, "pending_quantity") {
+		if err := DB.Migrator().AddColumn(&models.WarehouseStock{}, "pending_quantity"); err != nil {
+			fmt.Printf("[ERROR] AddColumn pending_quantity: %v\n", err)
+		} else {
+			fmt.Println("[INFO] AddColumn pending_quantity: success")
+		}
+	}
+	// 添加 orders.stock_status 列（如果不存在）
+	if !DB.Migrator().HasColumn(&models.Order{}, "stock_status") {
+		if err := DB.Migrator().AddColumn(&models.Order{}, "stock_status"); err != nil {
+			fmt.Printf("[ERROR] AddColumn stock_status: %v\n", err)
+		} else {
+			fmt.Println("[INFO] AddColumn stock_status: success")
+		}
+	}
+	// 添加 purchase_orders.receipt_remark 列（如果不存在）
+	if !DB.Migrator().HasColumn(&models.PurchaseOrder{}, "receipt_remark") {
+		if err := DB.Migrator().AddColumn(&models.PurchaseOrder{}, "receipt_remark"); err != nil {
+			fmt.Printf("[ERROR] AddColumn receipt_remark: %v\n", err)
+		} else {
+			fmt.Println("[INFO] AddColumn receipt_remark: success")
+		}
 	}
 	// 修改 order_items.discount_rate 列类型为 DECIMAL(5,4)，并将旧数据从百分比转为小数
 	migrateDiscountRate()
 
+	// 添加 users.level 列（如果不存在）
+	if !DB.Migrator().HasColumn(&models.User{}, "level") {
+		if err := DB.Migrator().AddColumn(&models.User{}, "level"); err != nil {
+			fmt.Printf("[ERROR] AddColumn users.level: %v\n", err)
+		} else {
+			fmt.Println("[INFO] AddColumn users.level: success")
+		}
+	}
+
+	// 添加 system_configs.sort 列（如果不存在）
+	if !DB.Migrator().HasColumn(&models.SystemConfig{}, "sort") {
+		if err := DB.Migrator().AddColumn(&models.SystemConfig{}, "sort"); err != nil {
+			fmt.Printf("[ERROR] AddColumn system_configs.sort: %v\n", err)
+		} else {
+			fmt.Println("[INFO] AddColumn system_configs.sort: success")
+		}
+	}
+
+	// 添加 follow_up_approvals.approval_type 和 order_id 列（如果不存在）
+	if !DB.Migrator().HasColumn(&models.FollowUpApproval{}, "approval_type") {
+		if err := DB.Migrator().AddColumn(&models.FollowUpApproval{}, "approval_type"); err != nil {
+			fmt.Printf("[ERROR] AddColumn follow_up_approvals.approval_type: %v\n", err)
+		} else {
+			fmt.Println("[INFO] AddColumn follow_up_approvals.approval_type: success")
+		}
+	}
+	if !DB.Migrator().HasColumn(&models.FollowUpApproval{}, "order_id") {
+		if err := DB.Migrator().AddColumn(&models.FollowUpApproval{}, "order_id"); err != nil {
+			fmt.Printf("[ERROR] AddColumn follow_up_approvals.order_id: %v\n", err)
+		} else {
+			fmt.Println("[INFO] AddColumn follow_up_approvals.order_id: success")
+		}
+	}
+
+	// 添加 roles.sort_order 列（如果不存在）
+	if !DB.Migrator().HasColumn(&models.Role{}, "sort_order") {
+		if err := DB.Migrator().AddColumn(&models.Role{}, "sort_order"); err != nil {
+			fmt.Printf("[ERROR] AddColumn roles.sort_order: %v\n", err)
+		} else {
+			fmt.Println("[INFO] AddColumn roles.sort_order: success")
+		}
+	}
+
+	// 添加 app_versions.update_type 列（如果不存在）
+	if !DB.Migrator().HasColumn(&models.AppVersion{}, "update_type") {
+		if err := DB.Migrator().AddColumn(&models.AppVersion{}, "update_type"); err != nil {
+			fmt.Printf("[ERROR] AddColumn app_versions.update_type: %v\n", err)
+		} else {
+			fmt.Println("[INFO] AddColumn app_versions.update_type: success")
+		}
+	}
+
+	// 添加 products.series 列（如果不存在）
+	if !DB.Migrator().HasColumn(&models.Product{}, "series") {
+		if err := DB.Migrator().AddColumn(&models.Product{}, "series"); err != nil {
+			fmt.Printf("[ERROR] AddColumn products.series: %v\n", err)
+		} else {
+			fmt.Println("[INFO] AddColumn products.series: success")
+		}
+	}
+
+	// 添加 products.sub_category 列（如果不存在）
+	if !DB.Migrator().HasColumn(&models.Product{}, "sub_category") {
+		if err := DB.Migrator().AddColumn(&models.Product{}, "sub_category"); err != nil {
+			fmt.Printf("[ERROR] AddColumn products.sub_category: %v\n", err)
+		} else {
+			fmt.Println("[INFO] AddColumn products.sub_category: success")
+		}
+	}
+
+	// 初始化角色数据（INSERT IGNORE 幂等）
+	seedRoles()
+
 	// 初始化权限数据（INSERT IGNORE 幂等）
 	seedPermissions()
+
+	// 初始化提成比例配置数据（INSERT IGNORE 幂等）
+	seedCommissionConfigs()
+}
+
+// autoMigrateNewTablesOnly 只创建不存在的表，不修改已有表
+// GORM 的 AutoMigrate 会清除 MySQL 的 COMMENT，所以必须谨慎使用
+func autoMigrateNewTablesOnly() {
+	// 定义需要自动迁移的模型列表
+	modelsToMigrate := []interface{}{
+		&models.CustomerFollowUp{},
+		&models.FollowUpApproval{},
+		&models.AppVersion{},
+		&models.StockQueue{},
+		&models.SystemBackup{},
+		&models.Role{},
+		&models.Stocktake{},
+		&models.StocktakeItem{},
+		&models.OutboundRequest{},
+	}
+
+	for _, model := range modelsToMigrate {
+		// 检查表是否已存在
+		if !DB.Migrator().HasTable(model) {
+			// 表不存在，创建表
+			if err := DB.AutoMigrate(model); err != nil {
+				fmt.Printf("[WARN] AutoMigrate failed for %T: %v\n", model, err)
+			} else {
+				fmt.Printf("[INFO] Created table for %T\n", model)
+			}
+		} else {
+			// 表已存在，跳过（避免清除 COMMENT）
+			fmt.Printf("[INFO] Table for %T already exists, skipping AutoMigrate\n", model)
+		}
+	}
+}
+
+// seedRoles 初始化角色数据到 roles 表
+func seedRoles() {
+	roles := []struct {
+		Code     string
+		Name     string
+		Sort     int
+	}{
+		{"BOSS", "老板", 1},
+		{"STORE_MANAGER", "店长", 2},
+		{"FINANCE", "财务", 3},
+		{"SUPERVISOR", "主管", 4},
+		{"SALESMAN", "业务员", 5},
+	}
+
+	now := time.Now().Format("2006-01-02 15:04:05")
+	for _, r := range roles {
+		DB.Exec(`INSERT IGNORE INTO roles (role_code, role_name, sort_order, status, created_at, updated_at) VALUES (?, ?, ?, 1, ?, ?)`,
+			r.Code, r.Name, r.Sort, now, now)
+	}
+	fmt.Println("[INFO] 角色初始化完成")
 }
 
 // seedPermissions 初始化权限数据到 permissions 表
@@ -114,6 +288,10 @@ func seedPermissions() {
 		{"payment:manage", "回款管理", 3, "", 1101},
 		// ===== 同行管理 =====
 		{"peer:manage", "同行管理", 3, "", 1201},
+		// ===== 送货管理 =====
+		{"delivery:view", "查看送货", 3, "", 1251},
+		{"delivery:create", "创建送货", 3, "", 1252},
+		{"delivery:cancel", "作废送货", 3, "", 1253},
 		// ===== 提成管理 =====
 		{"commission:manage", "提成管理", 3, "", 1301},
 		// ===== 工资管理 =====
@@ -124,6 +302,10 @@ func seedPermissions() {
 		{"config:manage", "系统配置管理", 3, "", 1601},
 		// ===== 门店管理 =====
 		{"store:manage", "门店管理", 3, "", 1701},
+		// ===== APP版本管理 =====
+		{"app_version:manage", "APP版本管理", 3, "", 1801},
+		// ===== 平台维护 =====
+		{"maintenance:manage", "平台维护", 3, "", 1901},
 	}
 
 	for _, p := range perms {
@@ -145,9 +327,22 @@ func seedPermissions() {
 
 // migratePaymentsTable 为 payments 表添加缺少的列
 func migratePaymentsTable() {
-	// 添加 updated_at 列
-	if err := DB.Exec("ALTER TABLE payments ADD COLUMN IF NOT EXISTS updated_at datetime(3) DEFAULT NULL").Error; err != nil {
-		fmt.Printf("[INFO] AddColumn payments.updated_at: %v\n", err)
+	// 检查 updated_at 列是否存在
+	var count int64
+	DB.Raw(`
+		SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS 
+		WHERE TABLE_SCHEMA = DATABASE() 
+		AND TABLE_NAME = 'payments' 
+		AND COLUMN_NAME = 'updated_at'
+	`).Scan(&count)
+
+	// 如果不存在则添加
+	if count == 0 {
+		if err := DB.Exec("ALTER TABLE payments ADD COLUMN updated_at datetime(3) DEFAULT NULL").Error; err != nil {
+			fmt.Printf("[ERROR] AddColumn payments.updated_at: %v\n", err)
+		} else {
+			fmt.Println("[INFO] AddColumn payments.updated_at: success")
+		}
 	}
 }
 
@@ -206,4 +401,53 @@ func migrateDiscountRate() {
 // GetDB 获取数据库实例
 func GetDB() *gorm.DB {
 	return DB
+}
+
+// seedCommissionConfigs 初始化提成比例配置数据
+func seedCommissionConfigs() {
+	configs := []struct {
+		Key   string
+		Value string
+		Type  string
+		Desc  string
+		Sort  int
+	}{
+		// 等级提成比例 - 初级 (sort: 10-12)
+		{"commission_rate_level1_single", "0.08", "commission", "初级业务员-单品提成比例", 10},
+		{"commission_rate_level1_multi", "0.10", "commission", "初级业务员-多品提成比例", 11},
+		{"commission_rate_level1_remark", "建议底薪3000-4000", "commission", "初级业务员-备注", 12},
+		// 等级提成比例 - 中级 (sort: 20-22)
+		{"commission_rate_level2_single", "0.18", "commission", "中级业务员-单品提成比例", 20},
+		{"commission_rate_level2_multi", "0.22", "commission", "中级业务员-多品提成比例", 21},
+		{"commission_rate_level2_remark", "建议底薪1500-2500", "commission", "中级业务员-备注", 22},
+		// 等级提成比例 - 高级 (sort: 30-32)
+		{"commission_rate_level3_single", "0.35", "commission", "高级业务员-单品提成比例", 30},
+		{"commission_rate_level3_multi", "0.38", "commission", "高级业务员-多品提成比例", 31},
+		{"commission_rate_level3_remark", "建议底薪0", "commission", "高级业务员-备注", 32},
+		// 同行提成比例 (sort: 40-42)
+		{"commission_rate_peer_single", "0.10", "commission", "同行单品提成比例", 40},
+		{"commission_rate_peer_multi", "0.12", "commission", "同行多品提成比例", 41},
+		{"commission_rate_peer_special", "0.08", "commission", "同行特批提成比例", 42},
+		// 团队分润 (sort: 50-53)
+		{"fund_pool_extract_rate", "0.05", "commission", "基金池提取比例", 50},
+		{"team_share_rate_manager", "0.03", "commission", "主管团队分润比例", 51},
+		{"team_share_rate_store", "0.02", "commission", "店长团队分润比例", 52},
+		{"referral_reward_rate", "0.10", "commission", "老带新奖励比例", 53},
+		// 固定提成比例 (sort: 60)
+		{"fixed_commission_rate", "0.05", "commission", "固定提成比例（月度回款提成）", 60},
+	}
+
+	inserted := 0
+	for _, c := range configs {
+		result := DB.Exec(
+			`INSERT IGNORE INTO system_configs (config_key, config_value, config_type, remark, sort, created_at, updated_at)
+			 VALUES (?, ?, ?, ?, ?, NOW(), NOW())`,
+			c.Key, c.Value, c.Type, c.Desc, c.Sort,
+		)
+		if result.Error == nil && result.RowsAffected > 0 {
+			inserted++
+		}
+	}
+
+	fmt.Printf("[INFO] 提成配置数据初始化完成，新增 %d 项\n", inserted)
 }

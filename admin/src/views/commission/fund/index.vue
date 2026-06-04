@@ -5,6 +5,7 @@
       <template #header>
         <div class="card-header">
           <span class="title">基金池管理</span>
+          <el-button type="primary" @click="handleSettle">发起结算</el-button>
         </div>
       </template>
 
@@ -59,16 +60,10 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="200" align="center" fixed="right">
+        <el-table-column label="操作" width="120" align="center" fixed="right">
           <template #default="{ row }">
             <el-button type="primary" link size="small" @click="handleViewShares(row)">
               份额详情
-            </el-button>
-            <el-button
-              v-if="row.status === 1"
-              type="success" link size="small" @click="handleSettle(row)"
-            >
-              结算
             </el-button>
           </template>
         </el-table-column>
@@ -118,7 +113,11 @@
         stripe
         style="width: 100%"
       >
-        <el-table-column prop="employee_name" label="姓名" width="140" />
+        <el-table-column label="姓名" width="140">
+          <template #default="{ row }">
+            {{ row.employee?.real_name || row.employee?.username || '-' }}
+          </template>
+        </el-table-column>
         <el-table-column label="个人利润" width="160" align="right">
           <template #default="{ row }">
             <span class="price">{{ formatCurrency(row.personal_profit) }}</span>
@@ -138,20 +137,49 @@
 <el-dialog v-dialog-drag
       v-model="settleDialogVisible"
       title="基金池结算"
-      width="480px"
+      width="520px"
       destroy-on-close
     >
+      <el-alert
+        type="info"
+        :closable="false"
+        style="margin-bottom: 16px"
+      >
+        <template #title>
+          结算将从提成记录中汇总基金池数据并生成分额分配
+        </template>
+      </el-alert>
       <el-form
         ref="settleFormRef"
         :model="settleForm"
         :rules="settleFormRules"
         label-width="100px"
       >
-        <el-form-item label="周期">
-          <el-input :model-value="currentFund?.period_value" disabled />
+        <el-form-item label="门店" prop="store_id">
+          <el-select v-model="settleForm.store_id" placeholder="请选择门店" style="width: 100%">
+            <el-option
+              v-for="s in storeOptions"
+              :key="s.id"
+              :label="s.store_name"
+              :value="s.id"
+            />
+          </el-select>
         </el-form-item>
-        <el-form-item label="基金池金额">
-          <el-input :model-value="formatCurrency(currentFund?.pool_amount)" disabled />
+        <el-form-item label="周期类型" prop="period_type">
+          <el-select v-model="settleForm.period_type" placeholder="请选择" style="width: 100%">
+            <el-option label="月度" :value="1" />
+            <el-option label="季度" :value="2" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="周期值" prop="period_value">
+          <el-date-picker
+            v-model="settleForm.period_value"
+            type="month"
+            placeholder="选择月份"
+            format="YYYY-MM"
+            value-format="YYYY-MM"
+            style="width: 100%"
+          />
         </el-form-item>
         <el-form-item label="结算备注" prop="remark">
           <el-input
@@ -177,10 +205,22 @@ import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getFundPoolList, getFundPoolShares, settleFundPool } from '@/api/fund'
 import { formatCurrency, formatPercent } from '@/utils/format'
+import { getStoreList } from '@/api/store'
 
 // ==================== 列表 ====================
 const loading = ref(false)
 const fundPoolList = ref([])
+
+// 门店选项
+const storeOptions = ref([])
+const fetchStoreOptions = async () => {
+  try {
+    const res = await getStoreList()
+    storeOptions.value = res.data?.list || res.data || []
+  } catch (e) {
+    console.error('获取门店列表失败:', e)
+  }
+}
 
 const pagination = reactive({
   page: 1,
@@ -208,18 +248,16 @@ const fetchList = async () => {
 // ==================== 状态映射 ====================
 const getFundStatusLabel = (status) => {
   const map = {
-    1: '待结算',
-    2: '已结算',
-    3: '已取消',
+    0: '待结算',
+    1: '已结算',
   }
-  return map[status] || status || '未知'
+  return map[status] ?? status ?? '未知'
 }
 
 const getFundStatusTag = (status) => {
   const map = {
-    1: 'warning',
-    2: 'success',
-    3: 'info',
+    0: 'warning',
+    1: 'success',
   }
   return map[status] || 'info'
 }
@@ -236,7 +274,8 @@ const handleViewShares = async (row) => {
   sharesLoading.value = true
   try {
     const res = await getFundPoolShares(row.id)
-    sharesList.value = res.data || []
+    // 后端返回 FundPool 对象，shares 字段是份额数组
+    sharesList.value = res.data?.shares || []
   } catch (error) {
     console.error('获取份额详情失败:', error)
   } finally {
@@ -250,15 +289,23 @@ const submitLoading = ref(false)
 const settleFormRef = ref(null)
 
 const settleForm = reactive({
+  store_id: '',
+  period_type: 1,
+  period_value: '',
   remark: '',
 })
 
 const settleFormRules = {
+  store_id: [{ required: true, message: '请选择门店', trigger: 'change' }],
+  period_type: [{ required: true, message: '请选择周期类型', trigger: 'change' }],
+  period_value: [{ required: true, message: '请选择周期值', trigger: 'change' }],
   remark: [{ required: true, message: '请输入结算备注', trigger: 'blur' }],
 }
 
-const handleSettle = (row) => {
-  currentFund.value = row
+const handleSettle = () => {
+  settleForm.store_id = ''
+  settleForm.period_type = 1
+  settleForm.period_value = ''
   settleForm.remark = ''
   settleDialogVisible.value = true
 }
@@ -270,8 +317,9 @@ const handleSettleSubmit = async () => {
   submitLoading.value = true
   try {
     await settleFundPool({
-      fund_pool_id: currentFund.value.id,
-      remark: settleForm.remark,
+      store_id: settleForm.store_id,
+      period_type: settleForm.period_type,
+      period_value: settleForm.period_value,
     })
     ElMessage.success('结算成功')
     settleDialogVisible.value = false
@@ -285,6 +333,7 @@ const handleSettleSubmit = async () => {
 
 // ==================== 初始化 ====================
 onMounted(() => {
+  fetchStoreOptions()
   fetchList()
 })
 </script>

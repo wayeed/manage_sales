@@ -84,8 +84,8 @@ func (s *SalaryService) GenerateSalary(storeID int64, salaryMonth string) error 
 			}
 
 			// 2. 计算各项金额
-			// a. base_salary
-			baseSalary := decimal.NewFromFloat(employee.BaseSalary)
+			// a. base_salary (已经是decimal.Decimal类型)
+			baseSalary := employee.BaseSalary
 
 			// b. sales_commission = SUM(commissions WHERE employee_id=? AND commission_type=1 AND period_value=salaryMonth AND status=1)
 			salesCommission, _ := s.commissionRepo.SumByEmployeeAndPeriod(employee.ID, salaryMonth, []int8{1})
@@ -347,4 +347,46 @@ func (s *SalaryService) GetEmployeeSalary(employeeID int64, salaryMonth string) 
 		return nil, &AppError{Code: apperrors.InternalError, Message: "查询工资记录失败"}
 	}
 	return record, nil
+}
+
+// ExportSalarySlip 导出工资条
+func (s *SalaryService) ExportSalarySlip(salaryRecordID int64) ([]byte, string, error) {
+	record, err := s.salaryRepo.FindByID(salaryRecordID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, "", &AppError{Code: apperrors.NotFound, Message: "工资记录不存在"}
+		}
+		return nil, "", &AppError{Code: apperrors.InternalError, Message: "查询工资记录失败"}
+	}
+
+	// 获取员工姓名
+	employeeName := ""
+	if record.Employee != nil {
+		employeeName = record.Employee.RealName
+		if employeeName == "" {
+			employeeName = record.Employee.Username
+		}
+	}
+
+	// 构建工资条内容（CSV 格式）
+	filename := fmt.Sprintf("工资条_%s_%s.csv", employeeName, record.SalaryMonth)
+
+	// 辅助函数：将 decimal 转为字符串
+	f2s := func(d decimal.Decimal) string { return d.StringFixed(2) }
+
+	var csvContent string
+	csvContent += "\xEF\xBB\xBF" // BOM for UTF-8 Excel compatibility
+	csvContent += "项目,金额,备注\n"
+	csvContent += fmt.Sprintf("员工姓名,%s,\n", employeeName)
+	csvContent += fmt.Sprintf("工资月份,%s,\n", record.SalaryMonth)
+	csvContent += fmt.Sprintf("基本工资,%s,\n", f2s(record.BaseSalary))
+	csvContent += fmt.Sprintf("销售提成,%s,\n", f2s(record.SalesCommission))
+	csvContent += fmt.Sprintf("团队分润,%s,\n", f2s(record.TeamCommission))
+	csvContent += fmt.Sprintf("基金池奖励,%s,\n", f2s(record.FundReward))
+	csvContent += fmt.Sprintf("老带新奖励,%s,\n", f2s(record.ReferralReward))
+	csvContent += fmt.Sprintf("扣款,%s,\n", f2s(record.Deduction))
+	csvContent += fmt.Sprintf("应发总额,%s,\n", f2s(record.GrossSalary))
+	csvContent += fmt.Sprintf("实发总额,%s,\n", f2s(record.NetSalary))
+
+	return []byte(csvContent), filename, nil
 }

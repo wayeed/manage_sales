@@ -175,6 +175,18 @@ func (r *CommissionRepository) ExistsByOrderID(orderID int64) (bool, error) {
 	return count > 0, nil
 }
 
+// ExistsByEmployeeAndPeriod 检查员工在指定周期是否已有指定类型的提成记录
+func (r *CommissionRepository) ExistsByEmployeeAndPeriod(employeeID int64, commissionType int8, periodValue string) (bool, error) {
+	var count int64
+	err := r.db.Model(&models.Commission{}).
+		Where("employee_id = ? AND commission_type = ? AND period_value = ?", employeeID, commissionType, periodValue).
+		Count(&count).Error
+	if err != nil {
+		return false, err
+	}
+	return count > 0, nil
+}
+
 // FindByPeriod 按周期查询提成记录
 func (r *CommissionRepository) FindByPeriod(periodValue string) ([]models.Commission, error) {
 	var commissions []models.Commission

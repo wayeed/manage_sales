@@ -25,7 +25,7 @@
     <!-- 统计卡片 -->
     <el-row :gutter="16" style="margin-top: 16px;">
       <el-col :span="8">
-        <CardStatistic title="回款率" :value="summary.paymentRate" suffix="%" icon="CircleCheck" trend="up" trend-value="3.2%" />
+        <CardStatistic title="回款率" :value="summary.paymentRate" suffix="%" icon="CircleCheck" trend="up" trend-value="3.2%" :decimals="1" />
       </el-col>
       <el-col :span="8">
         <CardStatistic title="回款总额" :value="summary.totalPayment" suffix="元" icon="Money" trend="up" trend-value="10.5%" />
@@ -119,16 +119,25 @@ const fetchPaymentData = async () => {
     }
     const res = await getPaymentAnalysis(params)
     if (res.data) {
-      summary.paymentRate = res.data.paymentRate || 0
-      summary.totalPayment = res.data.totalPayment || 0
-      summary.unpaidAmount = res.data.unpaidAmount || 0
+      // 适配后端下划线命名到前端驼峰命名
+      summary.paymentRate = res.data.collection_rate || 0
+      summary.totalPayment = res.data.total_paid_amount || 0
+      summary.unpaidAmount = res.data.total_unpaid_amount || 0
 
-      paymentMethodPieData.value = res.data.methodDistribution || []
-      trendXData.value = res.data.trendMonths || []
+      // 回款方式分布
+      const methodDist = res.data.payment_method_dist || []
+      paymentMethodPieData.value = methodDist.map(item => ({
+        name: item.method,
+        value: item.amount || 0
+      }))
+
+      // 回款趋势
+      const collectionTrend = res.data.collection_trend || []
+      trendXData.value = collectionTrend.map(item => item.date)
       trendSeriesData.value = [
         {
           name: '回款金额',
-          data: res.data.trendPayments || [],
+          data: collectionTrend.map(item => item.sales_amount || 0),
           itemStyle: { color: '#1890ff' },
           areaStyle: { color: 'rgba(24,144,255,0.1)' },
         },

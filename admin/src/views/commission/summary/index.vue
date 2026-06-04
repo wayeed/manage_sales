@@ -133,13 +133,13 @@ const fetchSummary = async () => {
   try {
     const params = { month: filterForm.month }
     const res = await getCommissionSummary(params)
-    summaryList.value = res.data?.list || res.data || []
-    // 汇总统计
-    const stats = res.data?.stats || {}
-    summaryStats.total_sales = stats.total_sales || 0
-    summaryStats.total_team = stats.total_team || 0
-    summaryStats.total_fund = stats.total_fund || 0
-    summaryStats.total_referral = stats.total_referral || 0
+    const list = res.data?.list || res.data || []
+    summaryList.value = list
+    // 从列表数据中计算汇总统计
+    summaryStats.total_sales = list.reduce((sum, row) => sum + (Number(row.sales_commission) || 0), 0)
+    summaryStats.total_team = list.reduce((sum, row) => sum + (Number(row.team_share) || 0), 0)
+    summaryStats.total_fund = list.reduce((sum, row) => sum + (Number(row.fund_pool_reward) || 0), 0)
+    summaryStats.total_referral = list.reduce((sum, row) => sum + (Number(row.referral_reward) || 0), 0)
   } catch (error) {
     console.error('获取提成汇总失败:', error)
   } finally {

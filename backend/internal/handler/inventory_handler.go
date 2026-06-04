@@ -55,14 +55,15 @@ func (h *InventoryHandler) GetStock(c *gin.Context) {
 
 // GetStockList 获取仓库库存列表
 // @Summary      获取库存列表
-// @Description  分页查询仓库库存列表，支持按仓库和关键词筛选
+// @Description  分页查询仓库库存列表，支持按仓库、SKU ID和关键词筛选
 // @Tags         库存管理
 // @Accept       json
 // @Produce      json
 // @Param        warehouse_id  query  int64   false  "仓库ID，不传或传0则查询所有仓库"
-// @Param        keyword      query  string  false  "搜索关键词"
-// @Param        page         query  int     false  "页码"      default(1)
-// @Param        page_size    query  int     false  "每页数量"   default(10)
+// @Param        sku_id        query  int64   false  "SKU ID，精确查询指定SKU库存"
+// @Param        keyword       query  string  false  "搜索关键词"
+// @Param        page          query  int     false  "页码"      default(1)
+// @Param        page_size     query  int     false  "每页数量"   default(10)
 // @Success      200  {object}  handler.Response{data=handler.PageData}  "成功"
 // @Failure      200  {object}  handler.Response  "业务错误"
 // @Failure      401  {object}  handler.Response  "未认证"
@@ -70,11 +71,12 @@ func (h *InventoryHandler) GetStock(c *gin.Context) {
 // @Router       /inventory/stocks [get]
 func (h *InventoryHandler) GetStockList(c *gin.Context) {
 	warehouseID, _ := strconv.ParseInt(c.DefaultQuery("warehouse_id", "0"), 10, 64)
+	skuID, _ := strconv.ParseInt(c.Query("sku_id"), 10, 64)
 	keyword := c.Query("keyword")
 	page, _ := strconv.Atoi(c.Query("page"))
 	pageSize, _ := strconv.Atoi(c.Query("page_size"))
 
-	stocks, total, err := h.inventoryService.GetStockList(warehouseID, keyword, page, pageSize)
+	stocks, total, err := h.inventoryService.GetStockList(warehouseID, skuID, keyword, page, pageSize)
 	if err != nil {
 		if appErr, ok := err.(*service.AppError); ok {
 			Error(c, appErr.Code, appErr.Message)
@@ -137,4 +139,26 @@ func (h *InventoryHandler) GetTransactions(c *gin.Context) {
 	}
 
 	PageResponse(c, transactions, total, page, pageSize)
+}
+
+// GetStockDetail 根据ID获取库存详情
+// GET /api/inventory/:id
+func (h *InventoryHandler) GetStockDetail(c *gin.Context) {
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		Error(c, 400, "无效的库存ID")
+		return
+	}
+
+	stock, err := h.inventoryService.GetStockByID(id)
+	if err != nil {
+		if appErr, ok := err.(*service.AppError); ok {
+			Error(c, appErr.Code, appErr.Message)
+			return
+		}
+		Error(c, 500, "查询库存详情失败")
+		return
+	}
+
+	Success(c, stock)
 }

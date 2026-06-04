@@ -98,6 +98,13 @@
             <span v-if="!row.roles || row.roles.length === 0" class="text-muted">-</span>
           </template>
         </el-table-column>
+        <el-table-column label="等级" width="90" align="center">
+          <template #default="{ row }">
+            <el-tag :type="getLevelTag(row.level)" size="small">
+              {{ getLevelLabel(row.level) }}
+            </el-tag>
+          </template>
+        </el-table-column>
         <el-table-column label="转正" width="70" align="center">
           <template #default="{ row }">
             <el-tag :type="row.is_formal === 1 ? 'success' : 'info'" size="small">
@@ -115,6 +122,11 @@
         <el-table-column label="入职日期" width="110" align="center">
           <template #default="{ row }">
             {{ row.entry_date ? row.entry_date.substring(0, 10) : '-' }}
+          </template>
+        </el-table-column>
+        <el-table-column label="引荐人" width="100" align="center">
+          <template #default="{ row }">
+            {{ row.referrer?.real_name || row.referrer?.username || '-' }}
           </template>
         </el-table-column>
         <el-table-column label="操作" width="320" align="center" fixed="right">
@@ -240,6 +252,23 @@
         </el-row>
         <el-row :gutter="16">
           <el-col :span="12">
+            <el-form-item label="等级">
+              <el-select v-model="userForm.level" placeholder="请选择等级" style="width: 100%">
+                <el-option label="初级业务员" :value="1" />
+                <el-option label="中级业务员" :value="2" />
+                <el-option label="高级业务员" :value="3" />
+              </el-select>
+              <div class="level-remark">{{ levelRemark }}</div>
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="基本工资">
+              <el-input-number v-model="userForm.base_salary" :min="0" :precision="2" placeholder="0.00" style="width: 100%" />
+            </el-form-item>
+          </el-col>
+        </el-row>
+        <el-row :gutter="16">
+          <el-col :span="12">
             <el-form-item label="是否转正">
               <el-radio-group v-model="userForm.is_formal">
                 <el-radio :value="1">是</el-radio>
@@ -283,11 +312,6 @@
           </el-col>
         </el-row>
         <el-row :gutter="16">
-          <el-col :span="12">
-            <el-form-item label="基本工资">
-              <el-input-number v-model="userForm.base_salary" :min="0" :precision="2" placeholder="0.00" style="width: 100%" />
-            </el-form-item>
-          </el-col>
           <el-col :span="12">
             <el-form-item label="角色">
               <el-select v-model="userForm.role_ids" multiple placeholder="请选择角色" style="width: 100%">
@@ -394,7 +418,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { ref, reactive, onMounted, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   getUserList,
@@ -407,6 +431,7 @@ import {
 } from '@/api/user'
 import { getRoleList } from '@/api/role'
 import { getStoreList } from '@/api/store'
+import { getConfigList } from '@/api/config'
 
 // ==================== 搜索与列表 ====================
 const loading = ref(false)
@@ -467,6 +492,47 @@ const fetchStoreOptions = async () => {
   }
 }
 
+// 等级标签和标签类型
+const getLevelLabel = (level) => {
+  const map = { 1: '初级', 2: '中级', 3: '高级' }
+  return map[level] || '初级'
+}
+
+const getLevelTag = (level) => {
+  const map = { 1: 'info', 2: 'warning', 3: 'success' }
+  return map[level] || 'info'
+}
+
+// 等级配置（从系统配置读取）
+const levelConfigs = ref({})
+
+const fetchLevelConfigs = async () => {
+  try {
+    const res = await getConfigList()
+    const configs = res.data || []
+    const configMap = {}
+    configs.forEach(c => { configMap[c.config_key] = c.config_value })
+    levelConfigs.value = configMap
+  } catch (e) {
+    console.error('获取系统配置失败:', e)
+  }
+}
+
+// 等级备注（包含底薪建议和提成比例，从系统配置读取）
+const levelRemark = computed(() => {
+  const level = userForm.level
+  const single = levelConfigs.value[`commission_rate_level${level}_single`]
+  const multi = levelConfigs.value[`commission_rate_level${level}_multi`]
+  const remark = levelConfigs.value[`commission_rate_level${level}_remark`]
+
+  const rateText = single && multi
+    ? `单品${(Number(single) * 100).toFixed(0)}% / 多品${(Number(multi) * 100).toFixed(0)}%`
+    : ''
+  const remarkText = remark || ''
+
+  return [remarkText, rateText].filter(Boolean).join(' | ')
+})
+
 const handleSearch = () => {
   pagination.page = 1
   fetchUserList()
@@ -500,6 +566,7 @@ const userForm = reactive({
   entry_date: '',
   probation_end_date: '',
   is_formal: 0,
+  level: 1, // 默认初级业务员
   parent_id: null,
   referrer_id: null,
   base_salary: 0,
@@ -536,6 +603,7 @@ const resetUserForm = () => {
   userForm.entry_date = ''
   userForm.probation_end_date = ''
   userForm.is_formal = 0
+  userForm.level = 1 // 默认初级业务员
   userForm.parent_id = null
   userForm.referrer_id = null
   userForm.base_salary = 0
@@ -567,6 +635,7 @@ const handleEdit = (row) => {
   userForm.entry_date = row.entry_date ? row.entry_date.substring(0, 10) : ''
   userForm.probation_end_date = row.probation_end_date ? row.probation_end_date.substring(0, 10) : ''
   userForm.is_formal = row.is_formal || 0
+  userForm.level = row.level || 1
   userForm.parent_id = row.parent_id || null
   userForm.referrer_id = row.referrer_id || null
   userForm.base_salary = row.base_salary || 0
@@ -596,6 +665,7 @@ const handleSubmit = async () => {
       entry_date: userForm.entry_date,
       probation_end_date: userForm.probation_end_date,
       is_formal: userForm.is_formal,
+      level: userForm.level,
       parent_id: userForm.parent_id || null,
       referrer_id: userForm.referrer_id || null,
       base_salary: userForm.base_salary,
@@ -717,6 +787,7 @@ onMounted(() => {
   fetchUserList()
   fetchRoleOptions()
   fetchStoreOptions()
+  fetchLevelConfigs()
 })
 </script>
 
@@ -787,6 +858,13 @@ onMounted(() => {
       font-size: 15px;
       color: #303133;
     }
+  }
+
+  .level-remark {
+    margin-top: 4px;
+    font-size: 12px;
+    color: #909399;
+    line-height: 1.4;
   }
 }
 </style>

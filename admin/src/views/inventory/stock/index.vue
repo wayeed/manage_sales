@@ -99,6 +99,16 @@
             {{ row.locked_quantity ?? 0 }}
           </template>
         </el-table-column>
+        <el-table-column label="在途库存" width="100" align="center">
+          <template #default="{ row }">
+            {{ row.in_transit_quantity ?? 0 }}
+          </template>
+        </el-table-column>
+        <el-table-column label="待分配库存" width="100" align="center">
+          <template #default="{ row }">
+            {{ row.pending_quantity ?? 0 }}
+          </template>
+        </el-table-column>
         <el-table-column label="预警状态" width="100" align="center">
           <template #default="{ row }">
             <el-tag

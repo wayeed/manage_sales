@@ -1,157 +1,221 @@
 <template>
-  <view class="edit-page">
-    <view class="form-section card">
+  <view class="profile-page">
+    <!-- 头部 -->
+    <view class="profile-header">
+      <view class="avatar-wrap">
+        <image
+          class="avatar"
+          :src="userInfo?.avatar || '/static/avatar-default.png'"
+          mode="aspectFill"
+        />
+      </view>
+      <text class="user-name">{{ userInfo?.real_name || '--' }}</text>
+      <text class="user-role">{{ roleNames }}</text>
+    </view>
+
+    <!-- 基本信息 -->
+    <view class="section">
       <text class="section-title">基本信息</text>
-      <view class="form-item">
-        <text class="form-label">姓名 <text class="required">*</text></text>
-        <input v-model="form.name" class="input-field" placeholder="请输入姓名" />
-      </view>
-      <view class="form-item">
-        <text class="form-label">手机号 <text class="required">*</text></text>
-        <input v-model="form.phone" class="input-field" type="number" maxlength="11" placeholder="请输入手机号" />
-      </view>
-      <view class="form-item">
-        <text class="form-label">邮箱</text>
-        <input v-model="form.email" class="input-field" placeholder="请输入邮箱" />
+      <view class="info-list">
+        <view class="info-item">
+          <text class="info-label">用户名</text>
+          <text class="info-value">{{ userInfo?.username || '--' }}</text>
+        </view>
+        <view class="info-item">
+          <text class="info-label">工号</text>
+          <text class="info-value">{{ userInfo?.employee_no || '--' }}</text>
+        </view>
+        <view class="info-item">
+          <text class="info-label">姓名</text>
+          <text class="info-value">{{ userInfo?.real_name || '--' }}</text>
+        </view>
+        <view class="info-item">
+          <text class="info-label">手机号</text>
+          <text class="info-value">{{ userInfo?.phone || '--' }}</text>
+        </view>
+        <view class="info-item">
+          <text class="info-label">所属门店</text>
+          <text class="info-value">{{ userInfo?.store_name || '--' }}</text>
+        </view>
+        <view class="info-item">
+          <text class="info-label">入职日期</text>
+          <text class="info-value">{{ formatDate(userInfo?.entry_date) }}</text>
+        </view>
       </view>
     </view>
 
-    <view class="submit-section">
-      <button class="btn-primary submit-btn" :class="{ disabled: submitting }" @tap="handleSubmit">
-        {{ submitting ? '保存中...' : '保存修改' }}
-      </button>
+    <!-- 工作信息 -->
+    <view class="section">
+      <text class="section-title">工作信息</text>
+      <view class="info-list">
+        <view class="info-item">
+          <text class="info-label">我的角色</text>
+          <text class="info-value">{{ roleNames || '--' }}</text>
+        </view>
+        <view class="info-item">
+          <text class="info-label">我的上级</text>
+          <text class="info-value">{{ userInfo?.parent_name || '--' }}</text>
+        </view>
+        <view class="info-item">
+          <text class="info-label">业务员等级</text>
+          <text class="info-value">{{ levelText }}</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 银行信息 -->
+    <view class="section">
+      <text class="section-title">银行信息</text>
+      <view class="info-list">
+        <view class="info-item">
+          <text class="info-label">开户银行</text>
+          <text class="info-value">{{ userInfo?.bank_name || '--' }}</text>
+        </view>
+        <view class="info-item">
+          <text class="info-label">银行卡号</text>
+          <text class="info-value">{{ maskBankCard(userInfo?.bank_account) }}</text>
+        </view>
+      </view>
     </view>
   </view>
 </template>
 
 <script>
-import { ref, onMounted } from 'vue'
+import { computed, onMounted } from 'vue'
 import { useUserStore } from '../../store/user'
-import { updateProfile } from '../../api/user'
 
 export default {
   setup() {
     const userStore = useUserStore()
-    const form = ref({
-      name: '',
-      phone: '',
-      email: ''
+    const userInfo = computed(() => userStore.userInfo)
+
+    // 角色名称列表
+    const roleNames = computed(() => {
+      const roles = userInfo.value?.roles || []
+      if (roles.length === 0) return '--'
+      return roles.map(r => r.role_name).join('、')
     })
-    const submitting = ref(false)
+
+    // 业务员等级文字
+    const levelText = computed(() => {
+      const map = { 1: '初级业务员', 2: '中级业务员', 3: '高级业务员' }
+      return map[userInfo.value?.level] || '--'
+    })
+
+    // 格式化日期
+    const formatDate = (dateStr) => {
+      if (!dateStr) return '--'
+      const d = new Date(dateStr)
+      const y = d.getFullYear()
+      const m = String(d.getMonth() + 1).padStart(2, '0')
+      const day = String(d.getDate()).padStart(2, '0')
+      return `${y}-${m}-${day}`
+    }
+
+    // 银行卡号脱敏
+    const maskBankCard = (cardNo) => {
+      if (!cardNo) return '--'
+      if (cardNo.length <= 8) return cardNo
+      return cardNo.slice(0, 4) + ' **** **** ' + cardNo.slice(-4)
+    }
 
     onMounted(() => {
-      if (userStore.userInfo) {
-        form.value.name = userStore.userInfo.name || ''
-        form.value.phone = userStore.userInfo.phone || ''
-        form.value.email = userStore.userInfo.email || ''
-      }
+      userStore.fetchUserInfo()
     })
 
-    const validate = () => {
-      if (!form.value.name) {
-        uni.showToast({ title: '请输入姓名', icon: 'none' })
-        return false
-      }
-      if (!form.value.phone) {
-        uni.showToast({ title: '请输入手机号', icon: 'none' })
-        return false
-      }
-      if (!/^1\d{10}$/.test(form.value.phone)) {
-        uni.showToast({ title: '请输入正确的手机号', icon: 'none' })
-        return false
-      }
-      if (form.value.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.value.email)) {
-        uni.showToast({ title: '请输入正确的邮箱', icon: 'none' })
-        return false
-      }
-      return true
+    return {
+      userInfo,
+      roleNames,
+      levelText,
+      formatDate,
+      maskBankCard
     }
-
-    const handleSubmit = async () => {
-      if (submitting.value) return
-      if (!validate()) return
-
-      submitting.value = true
-      try {
-        await updateProfile(form.value)
-        await userStore.fetchUserInfo()
-        uni.showToast({ title: '保存成功', icon: 'success' })
-        setTimeout(() => {
-          uni.navigateBack()
-        }, 1500)
-      } catch (e) {
-        console.error('保存失败:', e)
-      } finally {
-        submitting.value = false
-      }
-    }
-
-    return { form, submitting, handleSubmit }
   }
 }
 </script>
 
 <style lang="scss" scoped>
-.edit-page {
+.profile-page {
   min-height: 100vh;
   background-color: #f5f5f5;
-  padding: 24rpx;
 }
 
-.form-section {
+.profile-header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 60rpx 24rpx 40rpx;
+  background: linear-gradient(135deg, #1890ff 0%, #096dd9 100%);
+}
+
+.avatar-wrap {
+  width: 128rpx;
+  height: 128rpx;
+  border-radius: 50%;
+  overflow: hidden;
+  border: 4rpx solid rgba(255, 255, 255, 0.4);
+}
+
+.avatar {
+  width: 100%;
+  height: 100%;
+}
+
+.user-name {
+  margin-top: 20rpx;
+  font-size: 36rpx;
+  font-weight: 600;
+  color: #ffffff;
+}
+
+.user-role {
+  margin-top: 8rpx;
+  font-size: 24rpx;
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.section {
+  margin: 24rpx;
+  background-color: #ffffff;
+  border-radius: 16rpx;
   padding: 24rpx;
 }
 
 .section-title {
-  font-size: 32rpx;
-  font-weight: bold;
+  font-size: 30rpx;
+  font-weight: 600;
   color: #333333;
-  margin-bottom: 24rpx;
+  margin-bottom: 16rpx;
+  padding-left: 16rpx;
+  border-left: 6rpx solid #1890ff;
 }
 
-.form-item {
-  margin-bottom: 24rpx;
+.info-list {
+  padding: 0 8rpx;
+}
+
+.info-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 24rpx 0;
+  border-bottom: 1rpx solid #f0f0f0;
 
   &:last-child {
-    margin-bottom: 0;
+    border-bottom: none;
   }
 }
 
-.form-label {
+.info-label {
   font-size: 28rpx;
-  color: #666666;
-  margin-bottom: 12rpx;
-  display: block;
+  color: #999999;
+  flex-shrink: 0;
 }
 
-.required {
-  color: #ff4d4f;
-}
-
-.input-field {
-  width: 100%;
-  height: 80rpx;
-  background-color: #f5f5f5;
-  border: 2rpx solid #eeeeee;
-  border-radius: 12rpx;
-  padding: 0 24rpx;
+.info-value {
   font-size: 28rpx;
   color: #333333;
-}
-
-.submit-section {
-  padding: 30rpx 0 60rpx;
-}
-
-.submit-btn {
-  width: 100%;
-  height: 88rpx;
-  line-height: 88rpx;
-  font-size: 32rpx;
-  border-radius: 12rpx;
-
-  &.disabled {
-    opacity: 0.6;
-  }
+  text-align: right;
+  word-break: break-all;
 }
 </style>

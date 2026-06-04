@@ -10,15 +10,21 @@ import (
 
 // CommissionTask 提成核算定时任务
 type CommissionTask struct {
-	commissionService *service.CommissionService
-	fundPoolService   *service.FundPoolService
+	commissionService     *service.CommissionService
+	fundPoolService       *service.FundPoolService
+	fixedCommissionService *service.FixedCommissionService
 }
 
 // NewCommissionTask 创建提成核算定时任务
-func NewCommissionTask(commissionService *service.CommissionService, fundPoolService *service.FundPoolService) *CommissionTask {
+func NewCommissionTask(
+	commissionService *service.CommissionService,
+	fundPoolService *service.FundPoolService,
+	fixedCommissionService *service.FixedCommissionService,
+) *CommissionTask {
 	return &CommissionTask{
-		commissionService: commissionService,
-		fundPoolService:   fundPoolService,
+		commissionService:      commissionService,
+		fundPoolService:        fundPoolService,
+		fixedCommissionService: fixedCommissionService,
 	}
 }
 
@@ -38,6 +44,16 @@ func (t *CommissionTask) MonthlySettlement() {
 		logrus.Errorf("基金池月度结算失败: %v", err)
 	} else {
 		logrus.Infof("基金池 %s 月度结算完成", periodValue)
+	}
+
+	// 2. 固定提成月度计算
+	if t.fixedCommissionService != nil {
+		err = t.fixedCommissionService.CalculateMonthlyFixedCommission(periodValue)
+		if err != nil {
+			logrus.Errorf("固定提成月度计算失败: %v", err)
+		} else {
+			logrus.Infof("固定提成 %s 月度计算完成", periodValue)
+		}
 	}
 
 	logrus.Infof("月度结算任务完成: %s", periodValue)

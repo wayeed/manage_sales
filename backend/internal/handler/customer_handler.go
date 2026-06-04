@@ -200,3 +200,30 @@ func (h *CustomerHandler) GetFollowUps(c *gin.Context) {
 
 	Success(c, followUps)
 }
+
+// GetCustomersWithDraftStatus 获取客户列表（含草稿状态）
+// GET /api/customers/with-draft-status?keyword=&page=1&page_size=20
+func (h *CustomerHandler) GetCustomersWithDraftStatus(c *gin.Context) {
+	userID := GetUserID(c)
+	storeID, _ := c.Get("storeID")
+	var sid int64
+	if s, ok := storeID.(int64); ok {
+		sid = s
+	}
+
+	keyword := c.Query("keyword")
+	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
+	pageSize, _ := strconv.Atoi(c.DefaultQuery("page_size", "20"))
+
+	result, err := h.customerService.GetCustomersWithDraftStatus(userID, sid, keyword, page, pageSize)
+	if err != nil {
+		if appErr, ok := err.(*service.AppError); ok {
+			Error(c, appErr.Code, appErr.Message)
+			return
+		}
+		Error(c, 500, "查询客户列表失败")
+		return
+	}
+
+	PageResponse(c, result.List, result.Total, result.Page, result.PageSize)
+}

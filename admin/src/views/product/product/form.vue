@@ -21,7 +21,14 @@
         <el-row :gutter="20">
           <el-col :span="12">
             <el-form-item label="商品编码" prop="product_code">
-              <el-input v-model="formData.product_code" placeholder="请输入商品编码" :disabled="isEdit" />
+              <el-input v-model="formData.product_code" placeholder="请输入商品编码" :disabled="isEdit">
+                <template #append>
+                  <el-button @click="generateAutoCode" :disabled="isEdit">
+                    <el-icon><Refresh /></el-icon>
+                    自动编码
+                  </el-button>
+                </template>
+              </el-input>
             </el-form-item>
           </el-col>
           <el-col :span="12">
@@ -46,6 +53,45 @@
                   :label="cat.category_name"
                   :value="cat.id"
                 />
+              </el-select>
+            </el-form-item>
+          </el-col>
+        </el-row>
+
+        <el-row :gutter="20">
+          <el-col :span="12">
+            <el-form-item label="款式">
+              <el-input v-model="formData.style" placeholder="请输入款式" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="单位">
+              <el-select v-model="formData.unit" placeholder="请选择单位" style="width: 100%">
+                <el-option label="件" value="件" />
+                <el-option label="张" value="张" />
+                <el-option label="个" value="个" />
+                <el-option label="把" value="把" />
+                <el-option label="套" value="套" />
+                <el-option label="台" value="台" />
+              </el-select>
+            </el-form-item>
+          </el-col>
+        </el-row>
+
+        <!-- 系列、类别 -->
+        <el-row :gutter="20">
+          <el-col :span="12">
+            <el-form-item label="系列">
+              <el-input v-model="formData.series" placeholder="请输入系列" />
+            </el-form-item>
+          </el-col>
+          <el-col :span="12">
+            <el-form-item label="类别">
+              <el-select v-model="formData.sub_category" placeholder="无" clearable style="width: 100%">
+                <el-option label="无" value="" />
+                <el-option label="A类" value="A" />
+                <el-option label="B类" value="B" />
+                <el-option label="C类" value="C" />
               </el-select>
             </el-form-item>
           </el-col>
@@ -203,49 +249,82 @@
           </div>
         </el-form-item>
 
-        <!-- SKU规格管理（仅编辑模式） -->
-        <template v-if="isEdit">
-          <el-divider content-position="left">SKU规格管理</el-divider>
+        <!-- SKU规格管理 -->
+        <el-divider content-position="left">SKU规格管理</el-divider>
 
-          <el-form-item label="">
-            <div class="sku-section">
-              <div class="sku-header">
-                <el-button type="primary" size="small" @click="openSkuDialog()">
-                  <el-icon><Plus /></el-icon>
-                  新增SKU
-                </el-button>
-              </div>
-
-              <el-table :data="skuList" border stripe size="small" style="width: 100%; margin-top: 12px">
-                <el-table-column prop="sku_code" label="SKU编码" width="120" />
-                <el-table-column prop="sku_name" label="SKU名称" min-width="150" show-overflow-tooltip />
-                <el-table-column prop="attributes" label="规格属性" min-width="150">
-                  <template #default="{ row }">
-                    {{ formatAttributes(row.attributes) }}
-                  </template>
-                </el-table-column>
-                <el-table-column prop="barcode" label="条码" width="120">
-                  <template #default="{ row }">
-                    {{ row.barcode || '-' }}
-                  </template>
-                </el-table-column>
-                <el-table-column prop="status" label="状态" width="80" align="center">
-                  <template #default="{ row }">
-                    <el-tag :type="row.status === 1 ? 'success' : 'danger'" size="small">
-                      {{ row.status === 1 ? '启用' : '禁用' }}
-                    </el-tag>
-                  </template>
-                </el-table-column>
-                <el-table-column label="操作" width="120" align="center">
-                  <template #default="{ row }">
-                    <el-button type="primary" link size="small" @click="openSkuDialog(row)">编辑</el-button>
-                    <el-button type="danger" link size="small" @click="handleDeleteSku(row)">删除</el-button>
-                  </template>
-                </el-table-column>
-              </el-table>
+        <el-form-item label="规格属性">
+          <div class="sku-attr-section">
+            <div v-for="(attr, index) in skuAttributes" :key="index" class="sku-attr-row">
+              <el-input
+                v-model="attr.name"
+                placeholder="属性名，如：颜色"
+                style="width: 150px"
+                size="small"
+              />
+              <el-input
+                v-model="attr.values"
+                placeholder="属性值，多个用逗号分隔，如：红,黄,蓝"
+                style="width: 300px; margin-left: 8px"
+                size="small"
+              />
+              <el-button
+                type="danger"
+                link
+                size="small"
+                style="margin-left: 8px"
+                @click="removeSkuAttribute(index)"
+              >
+                删除
+              </el-button>
             </div>
-          </el-form-item>
-        </template>
+            <el-button type="primary" link size="small" @click="addSkuAttribute">
+              <el-icon><Plus /></el-icon>
+              添加规格属性
+            </el-button>
+            <el-button
+              v-if="skuAttributes.length > 0"
+              type="success"
+              link
+              size="small"
+              @click="generateSkuCombinations"
+            >
+              <el-icon><Refresh /></el-icon>
+              生成SKU组合
+            </el-button>
+          </div>
+        </el-form-item>
+
+        <el-form-item label="SKU列表">
+          <div class="sku-section">
+            <el-table :data="skuList" border stripe size="small" style="width: 100%">
+              <el-table-column prop="sku_code" label="SKU编码" width="140">
+                <template #default="{ row, $index }">
+                  <el-input v-model="row.sku_code" size="small" placeholder="SKU编码" />
+                </template>
+              </el-table-column>
+              <el-table-column prop="sku_name" label="SKU名称" min-width="150">
+                <template #default="{ row, $index }">
+                  <el-input v-model="row.sku_name" size="small" placeholder="SKU名称" />
+                </template>
+              </el-table-column>
+              <el-table-column prop="attributes" label="规格属性" min-width="150">
+                <template #default="{ row }">
+                  {{ formatAttributes(row.attributes) }}
+                </template>
+              </el-table-column>
+              <el-table-column prop="barcode" label="条码" width="150">
+                <template #default="{ row, $index }">
+                  <el-input v-model="row.barcode" size="small" placeholder="条码" />
+                </template>
+              </el-table-column>
+              <el-table-column label="操作" width="100" align="center">
+                <template #default="{ row, $index }">
+                  <el-button type="danger" link size="small" @click="removeSkuRow($index)">删除</el-button>
+                </template>
+              </el-table-column>
+            </el-table>
+          </div>
+        </el-form-item>
 
         <el-form-item>
           <el-button type="primary" @click="handleSubmit" :loading="submitLoading">
@@ -270,7 +349,7 @@
 import { ref, reactive, onMounted, onBeforeUnmount, shallowRef } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { ArrowLeft } from '@element-plus/icons-vue'
+import { ArrowLeft, Refresh } from '@element-plus/icons-vue'
 import { Editor, Toolbar } from '@wangeditor/editor-for-vue'
 import '@wangeditor/editor/dist/css/style.css'
 import { getProductDetail, createProduct, updateProduct, getSkuList, createSku, updateSku, deleteSku } from '@/api/product'
@@ -295,6 +374,96 @@ const skuList = ref([])
 const skuDialogVisible = ref(false)
 const currentSku = ref(null)
 
+// SKU规格属性
+const skuAttributes = ref([])
+
+// 自动编码计数器（从100001开始）
+let autoCodeCounter = 100001
+
+// 生成自动编码
+const generateAutoCode = () => {
+  const code = `ZD${autoCodeCounter}`
+  formData.product_code = code
+  autoCodeCounter++
+}
+
+// 添加规格属性
+const addSkuAttribute = () => {
+  skuAttributes.value.push({
+    name: '',
+    values: ''
+  })
+}
+
+// 删除规格属性
+const removeSkuAttribute = (index) => {
+  skuAttributes.value.splice(index, 1)
+}
+
+// 生成SKU组合
+const generateSkuCombinations = () => {
+  // 过滤空属性
+  const validAttrs = skuAttributes.value.filter(attr => attr.name && attr.values)
+  if (validAttrs.length === 0) {
+    ElMessage.warning('请先填写规格属性')
+    return
+  }
+
+  // 解析属性值
+  const attrValues = validAttrs.map(attr => ({
+    name: attr.name,
+    values: attr.values.split(',').map(v => v.trim()).filter(v => v)
+  }))
+
+  // 生成笛卡尔积
+  const combinations = cartesianProduct(attrValues.map(attr => attr.values))
+
+  // 生成SKU列表
+  const newSkus = combinations.map((combo, index) => {
+    const attributes = {}
+    const attrNames = []
+    attrValues.forEach((attr, i) => {
+      attributes[attr.name] = combo[i]
+      attrNames.push(combo[i])
+    })
+
+    return {
+      sku_code: `${formData.product_code || 'SKU'}-${String(index + 1).padStart(3, '0')}`,
+      sku_name: `${formData.product_name || '商品'}-${attrNames.join('-')}`,
+      attributes: attributes,
+      barcode: '',
+      status: 1
+    }
+  })
+
+  skuList.value = newSkus
+  ElMessage.success(`已生成 ${newSkus.length} 个SKU`)
+}
+
+// 笛卡尔积计算
+const cartesianProduct = (arrays) => {
+  if (arrays.length === 0) return [[]]
+  const result = []
+  const helper = (current, index) => {
+    if (index === arrays.length) {
+      result.push([...current])
+      return
+    }
+    for (const item of arrays[index]) {
+      current.push(item)
+      helper(current, index + 1)
+      current.pop()
+    }
+  }
+  helper([], 0)
+  return result
+}
+
+// 删除SKU行
+const removeSkuRow = (index) => {
+  skuList.value.splice(index, 1)
+}
+
 // 折扣系数（从系统配置获取）
 const discountRate = ref(1.0)
 
@@ -310,6 +479,10 @@ const formData = reactive({
   min_price: 0,
   description: '',
   brand: '',
+  style: '',
+  unit: '件',
+  series: '',
+  sub_category: '',
   product_image: '',
   reference_cost: 0,
   total_cost_rate: 1.2,
@@ -463,12 +636,15 @@ const fetchProductDetail = async (id) => {
         product_code: res.data.product_code || '',
         product_name: res.data.product_name || '',
         category_id: res.data.category_id || null,
-        unit: res.data.unit || '件',
         cost_price: Number(res.data.cost_price) || 0,
         list_price: Number(res.data.list_price) || Number(res.data.sale_price) || 0,
         min_price: Number(res.data.min_price) || 0,
         description: res.data.description || '',
         brand: res.data.brand || '',
+        style: res.data.style || '',
+        unit: res.data.unit || '件',
+        series: res.data.series || '',
+        sub_category: res.data.sub_category || '',
         product_image: res.data.product_image || '',
         reference_cost: Number(res.data.reference_cost) || 0,
         total_cost_rate: Number(res.data.total_cost_rate) || 1.2,
@@ -477,6 +653,16 @@ const fetchProductDetail = async (id) => {
       // 如果有挂牌价和最低价，反算折扣系数
       if (formData.list_price > 0 && formData.min_price > 0) {
         discountRate.value = round4(formData.min_price / formData.list_price)
+      }
+
+      // 加载SKU列表
+      if (res.data.skus && res.data.skus.length > 0) {
+        skuList.value = res.data.skus.map(sku => ({
+          ...sku,
+          attributes: typeof sku.attributes === 'string' ? JSON.parse(sku.attributes) : (sku.attributes || {}),
+          sale_price: Number(sku.sale_price) || 0,
+          cost_price: Number(sku.cost_price) || 0,
+        }))
       }
     }
   } catch (error) {
@@ -493,11 +679,27 @@ const handleSubmit = async () => {
 
   submitLoading.value = true
   try {
+    // 清理SKU数据，只保留需要的字段
+    const cleanSkus = skuList.value.map(sku => {
+      const cleanSku = {
+        sku_code: sku.sku_code || sku.SKUCode || '',
+        sku_name: sku.sku_name || sku.SKUName || '',
+        attributes: typeof sku.attributes === 'string' ? sku.attributes : JSON.stringify(sku.attributes || {}),
+        barcode: sku.barcode || sku.Barcode || '',
+      }
+      return cleanSku
+    }).filter(sku => sku.sku_code !== '') // 过滤掉没有编码的SKU
+
+    const submitData = {
+      ...formData,
+      skus: cleanSkus
+    }
+
     if (isEdit.value) {
-      await updateProduct(productId.value, formData)
+      await updateProduct(productId.value, submitData)
       ElMessage.success('修改成功')
     } else {
-      await createProduct(formData)
+      await createProduct(submitData)
       ElMessage.success('创建成功')
     }
     goBack()
@@ -647,6 +849,16 @@ onBeforeUnmount(() => {
     .sku-header {
       display: flex;
       justify-content: flex-end;
+    }
+  }
+
+  .sku-attr-section {
+    width: 100%;
+
+    .sku-attr-row {
+      display: flex;
+      align-items: center;
+      margin-bottom: 8px;
     }
   }
 }

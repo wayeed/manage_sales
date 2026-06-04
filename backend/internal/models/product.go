@@ -15,6 +15,10 @@ type Product struct {
 	ProductCode	string	`gorm:"column:product_code;type:varchar(32);uniqueIndex" json:"product_code" example:"PRD001"`
 	ProductName	string	`gorm:"column:product_name;type:varchar(100)" json:"product_name" example:"智能手机"`
 	Brand	string	`gorm:"column:brand;type:varchar(50)" json:"brand" example:"华为"`
+	Style         string          `gorm:"column:style;type:varchar(100)" json:"style" example:""`
+	Unit          string          `gorm:"column:unit;type:varchar(20)" json:"unit" example:"件"`
+	Series        string          `gorm:"column:series;type:varchar(50)" json:"series" example:"现代系列"`
+	SubCategory   string          `gorm:"column:sub_category;type:varchar(10)" json:"sub_category" example:"A"`
 	ProductImage	string	`gorm:"column:product_image;type:varchar(255)" json:"product_image" example:"https://example.com/images/product001.jpg"`
 	Description	string	`gorm:"column:description;type:text" json:"description" example:"高端智能手机，性能卓越"`
 	ListPrice	decimal.Decimal	`gorm:"column:list_price;type:decimal(12,2);default:0.00" json:"list_price" example:"2999.00"`

@@ -37,10 +37,13 @@
             clearable
             style="width: 140px"
           >
-            <el-option label="销售提成" :value="1" />
-            <el-option label="团队分润" :value="2" />
-            <el-option label="基金池奖励" :value="3" />
-            <el-option label="老带新奖励" :value="4" />
+            <el-option label="业务员提成" :value="1" />
+            <el-option label="同行分成" :value="2" />
+            <el-option label="主管团队分润" :value="3" />
+            <el-option label="店长团队分润" :value="4" />
+            <el-option label="基金池奖励" :value="5" />
+            <el-option label="老带新奖励" :value="6" />
+            <el-option label="固定提成" :value="7" />
           </el-select>
         </el-form-item>
         <el-form-item>
@@ -248,10 +251,13 @@ const handleReset = () => {
 // ==================== 状态映射 ====================
 const getCommissionTypeLabel = (type) => {
   const map = {
-    1: '销售提成',
-    2: '团队分润',
-    3: '基金池奖励',
-    4: '老带新奖励',
+    1: '业务员提成',
+    2: '同行分成',
+    3: '主管团队分润',
+    4: '店长团队分润',
+    5: '基金池奖励',
+    6: '老带新奖励',
+    7: '固定提成',
   }
   return map[type] || type || '未知'
 }
@@ -260,30 +266,29 @@ const getCommissionTypeTag = (type) => {
   const map = {
     1: '',
     2: 'success',
-    3: 'warning',
-    4: 'danger',
+    3: '',
+    4: '',
+    5: 'warning',
+    6: 'danger',
+    7: 'success',
   }
   return map[type] || 'info'
 }
 
 const getStatusLabel = (status) => {
   const map = {
-    1: '待结算',
-    2: '已结算',
-    3: '已发放',
-    4: '已调整',
-    5: '已取消',
+    0: '待回款',
+    1: '可发放',
+    2: '已发放',
   }
-  return map[status] || status || '未知'
+  return map[status] ?? status ?? '未知'
 }
 
 const getStatusTag = (status) => {
   const map = {
+    0: 'info',
     1: 'warning',
     2: 'success',
-    3: '',
-    4: 'info',
-    5: 'danger',
   }
   return map[status] || 'info'
 }

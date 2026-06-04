@@ -14,6 +14,7 @@ type Customer struct {
 	CustomerCode	string	`gorm:"column:customer_code;type:varchar(32);uniqueIndex" json:"customer_code" example:"CUS001"`
 	CustomerName	string	`gorm:"column:customer_name;type:varchar(100)" json:"customer_name" example:"王五"`
 	Phone	string	`gorm:"column:phone;type:varchar(20)" json:"phone" example:"13800138000"`
+	OriginalPhone	string	`gorm:"column:original_phone;type:varchar(20)" json:"original_phone"`
 	Email	string	`gorm:"column:email;type:varchar(128)" json:"email" example:"admin@example.com"`
 	Address	string	`gorm:"column:address;type:varchar(500)" json:"address" example:"北京市朝阳区建国路88号"`
 	Gender	int8	`gorm:"column:gender;default:0" json:"gender" example:"1"`
@@ -24,6 +25,7 @@ type Customer struct {
 	TotalProfit	decimal.Decimal	`gorm:"column:total_profit;type:decimal(12,2);default:0.00" json:"total_profit" example:"8740.00"`
 	LastOrderAt	*time.Time	`gorm:"column:last_order_at" json:"last_order_at" example:"2025-01-15T00:00:00+08:00"`
 	Remark	string	`gorm:"column:remark;type:varchar(500)" json:"remark" example:"备注信息"`
+	SourceType	int8	`gorm:"column:source_type;default:0" json:"source_type" example:"0"` // 0=自然进店 1=主动邀约 2=同行带单
 	Status	int8	`gorm:"column:status;default:1" json:"status" example:"1"`
 	CreatedBy	*int64	`gorm:"column:created_by" json:"created_by" example:"1"`       // 创建者（录入客户的人）
 	SalesmanID	*int64	`gorm:"column:salesman_id" json:"salesman_id" example:"1"`     // 负责业务员（跟进客户的人）

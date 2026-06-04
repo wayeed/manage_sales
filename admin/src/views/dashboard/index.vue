@@ -5,7 +5,7 @@
       <el-col :span="6">
         <CardStatistic
           title="本月销售额"
-          :value="overview.monthSalesAmount"
+          :value="overview.total_sales"
           suffix="元"
           icon="Money"
           trend="up"
@@ -15,7 +15,7 @@
       <el-col :span="6">
         <CardStatistic
           title="本月订单数"
-          :value="overview.monthOrderCount"
+          :value="overview.total_orders"
           suffix="单"
           icon="Document"
           trend="up"
@@ -25,7 +25,7 @@
       <el-col :span="6">
         <CardStatistic
           title="本月利润"
-          :value="overview.monthProfit"
+          :value="overview.total_profit"
           suffix="元"
           icon="TrendCharts"
           trend="up"
@@ -35,7 +35,7 @@
       <el-col :span="6">
         <CardStatistic
           title="待审批订单"
-          :value="overview.pendingOrders"
+          :value="overview.pending_orders"
           suffix="单"
           icon="Bell"
           trend="down"
@@ -116,6 +116,7 @@
 import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { getDashboardOverview } from '@/api/dashboard'
+import { getSalesTrend, getPerformanceRanking } from '@/api/report'
 import CardStatistic from '@/components/Charts/CardStatistic.vue'
 import LineChart from '@/components/Charts/LineChart.vue'
 import BarChart from '@/components/Charts/BarChart.vue'
@@ -124,10 +125,12 @@ const router = useRouter()
 
 // ==================== 概览数据 ====================
 const overview = ref({
-  monthSalesAmount: 0,
-  monthOrderCount: 0,
-  monthProfit: 0,
-  pendingOrders: 0,
+  total_sales: 0,
+  total_orders: 0,
+  total_profit: 0,
+  pending_orders: 0,
+  pending_payments: 0,
+  low_stock_count: 0,
 })
 
 const fetchOverview = async () => {
@@ -145,45 +148,60 @@ const fetchOverview = async () => {
 const trendXData = ref([])
 const trendSeriesData = ref([])
 
-const initTrendData = () => {
-  const days = []
-  const salesData = []
-  const orderData = []
-  const now = new Date()
-  for (let i = 29; i >= 0; i--) {
-    const d = new Date(now)
-    d.setDate(d.getDate() - i)
-    const month = String(d.getMonth() + 1).padStart(2, '0')
-    const day = String(d.getDate()).padStart(2, '0')
-    days.push(`${month}-${day}`)
-    salesData.push(Math.floor(Math.random() * 50000 + 10000))
-    orderData.push(Math.floor(Math.random() * 30 + 5))
+const fetchTrendData = async () => {
+  try {
+    // 计算近30天日期范围
+    const endDate = new Date()
+    const startDate = new Date()
+    startDate.setDate(startDate.getDate() - 29)
+    
+    const formatDate = (date) => {
+      const year = date.getFullYear()
+      const month = String(date.getMonth() + 1).padStart(2, '0')
+      const day = String(date.getDate()).padStart(2, '0')
+      return `${year}-${month}-${day}`
+    }
+    
+    const res = await getSalesTrend({
+      start_date: formatDate(startDate),
+      end_date: formatDate(endDate),
+      dimension: 'day'
+    })
+    
+    if (res.data && Array.isArray(res.data)) {
+      const list = res.data
+      trendXData.value = list.map(item => {
+        const date = new Date(item.date)
+        return `${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+      })
+      trendSeriesData.value = [
+        {
+          name: '销售额',
+          data: list.map(item => parseFloat(item.sales_amount) || 0),
+          itemStyle: { color: '#1890ff' },
+          areaStyle: { color: 'rgba(24,144,255,0.1)' },
+        },
+        {
+          name: '订单数',
+          data: list.map(item => item.order_count || 0),
+          yAxisIndex: 1,
+          itemStyle: { color: '#52c41a' },
+        },
+      ]
+    }
+  } catch (error) {
+    console.error('获取销售趋势失败:', error)
   }
-  trendXData.value = days
-  trendSeriesData.value = [
-    {
-      name: '销售额',
-      data: salesData,
-      itemStyle: { color: '#1890ff' },
-      areaStyle: { color: 'rgba(24,144,255,0.1)' },
-    },
-    {
-      name: '订单数',
-      data: orderData,
-      yAxisIndex: 1,
-      itemStyle: { color: '#52c41a' },
-    },
-  ]
 }
 
 // ==================== 待办事项 ====================
-const todoList = ref([
+const todoList = computed(() => [
   {
     id: 1,
     tag: '待审批',
     tagType: 'warning',
     text: '待审批订单',
-    count: 12,
+    count: overview.value.pending_orders || 0,
     badgeType: 'warning',
     timelineType: 'warning',
     hollow: false,
@@ -195,11 +213,11 @@ const todoList = ref([
     tag: '待审核',
     tagType: 'danger',
     text: '待审核回款',
-    count: 5,
+    count: overview.value.pending_payments || 0,
     badgeType: 'danger',
     timelineType: 'danger',
     hollow: false,
-    timestamp: '今天 14:30',
+    timestamp: '今天',
     route: '/report/payment',
   },
   {
@@ -207,11 +225,11 @@ const todoList = ref([
     tag: '预警',
     tagType: 'info',
     text: '库存预警',
-    count: 8,
+    count: overview.value.low_stock_count || 0,
     badgeType: 'info',
     timelineType: 'primary',
     hollow: false,
-    timestamp: '今天 10:00',
+    timestamp: '今天',
     route: '/inventory/alert',
   },
 ])
@@ -230,35 +248,49 @@ const handleTodoClick = (item) => {
 const rankingXData = ref([])
 const rankingSeriesData = ref([])
 
-const initRankingData = () => {
-  const names = ['张三', '李四', '王五', '赵六', '钱七']
-  rankingXData.value = names
-  rankingSeriesData.value = [
-    {
-      name: '销售额',
-      data: [128000, 96000, 85000, 72000, 65000],
-      itemStyle: {
-        color: (params) => {
-          const colors = ['#f5222d', '#fa8c16', '#1890ff', '#52c41a', '#722ed1']
-          return colors[params.dataIndex] || '#1890ff'
+const fetchRankingData = async () => {
+  try {
+    const now = new Date()
+    const res = await getPerformanceRanking({
+      period_type: 'month',
+      period_value: `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`,
+      rank_by: 'salesman',
+      limit: 5
+    })
+    
+    if (res.data && Array.isArray(res.data)) {
+      const list = res.data.slice(0, 5)
+      rankingXData.value = list.map(item => item.name)
+      rankingSeriesData.value = [
+        {
+          name: '销售额',
+          data: list.map(item => parseFloat(item.sales_amount) || 0),
+          itemStyle: {
+            color: (params) => {
+              const colors = ['#f5222d', '#fa8c16', '#1890ff', '#52c41a', '#722ed1']
+              return colors[params.dataIndex] || '#1890ff'
+            },
+          },
+          label: {
+            show: true,
+            position: 'top',
+            formatter: (params) => `${(params.value / 10000).toFixed(1)}万`,
+            fontSize: 12,
+            color: '#606266',
+          },
         },
-      },
-      label: {
-        show: true,
-        position: 'top',
-        formatter: (params) => `${(params.value / 10000).toFixed(1)}万`,
-        fontSize: 12,
-        color: '#606266',
-      },
-    },
-  ]
+      ]
+    }
+  } catch (error) {
+    console.error('获取业绩排行失败:', error)
+  }
 }
 
 // ==================== 初始化 ====================
 onMounted(() => {
   fetchOverview()
-  initTrendData()
-  initRankingData()
+  fetchTrendData()
+  fetchRankingData()
 })
 </script>
 

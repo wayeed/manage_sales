@@ -28,7 +28,7 @@
         <CardStatistic title="总利润" :value="summary.totalProfit" suffix="元" icon="TrendCharts" trend="up" trend-value="8.5%" />
       </el-col>
       <el-col :span="12">
-        <CardStatistic title="平均利润率" :value="summary.avgProfitRate" suffix="%" icon="DataLine" trend="up" trend-value="2.1%" />
+        <CardStatistic title="平均利润率" :value="summary.avgProfitRate" suffix="%" icon="DataLine" trend="up" trend-value="2.1%" :decimals="1" />
       </el-col>
     </el-row>
 
@@ -109,26 +109,29 @@ const fetchProfitData = async () => {
     }
     const res = await getProfitAnalysis(params)
     if (res.data) {
-      summary.totalProfit = res.data.totalProfit || 0
-      summary.avgProfitRate = res.data.avgProfitRate || 0
+      // 适配后端下划线命名到前端驼峰命名
+      summary.totalProfit = res.data.total_profit || 0
+      summary.avgProfitRate = res.data.avg_profit_rate || 0
 
-      trendXData.value = res.data.trendDates || []
+      // 趋势数据：后端返回 profit_trend 数组
+      const profitTrend = res.data.profit_trend || []
+      trendXData.value = profitTrend.map(item => item.date)
       trendSeriesData.value = [
         {
           name: '利润',
-          data: res.data.trendProfits || [],
+          data: profitTrend.map(item => item.profit || 0),
           itemStyle: { color: '#52c41a' },
           areaStyle: { color: 'rgba(82,196,26,0.1)' },
         },
-        {
-          name: '利润率',
-          data: res.data.trendProfitRates || [],
-          yAxisIndex: 1,
-          itemStyle: { color: '#faad14' },
-        },
       ]
 
-      costPieData.value = res.data.costComposition || []
+      // 成本构成：后端返回 cost_breakdown 对象
+      const costBreakdown = res.data.cost_breakdown || {}
+      costPieData.value = [
+        { name: '商品成本', value: costBreakdown.product_cost || 0 },
+        { name: '礼品成本', value: costBreakdown.gift_cost || 0 },
+        { name: '其他成本', value: costBreakdown.other_cost || 0 },
+      ].filter(item => item.value > 0)
     }
   } catch (error) {
     console.error('获取利润分析失败:', error)

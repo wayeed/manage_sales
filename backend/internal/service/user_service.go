@@ -13,6 +13,7 @@ import (
 	appmd5 "furniture-commission/internal/pkg/md5"
 	"furniture-commission/internal/repository"
 
+	"github.com/shopspring/decimal"
 	"gorm.io/gorm"
 )
 
@@ -26,13 +27,13 @@ type CreateUserRequest struct {
 	Phone string `json:"phone" example:"13800138000"`
 	Email string `json:"email" example:"zhangsan@example.com"`
 	DepartmentID *int64 `json:"department_id" example:1`
-	Role int `json:"role" example:1`
+	Role int8 `json:"role" example:1`
 	EntryDate string `json:"entry_date" example:"2024-01-01"`
 	ProbationEndDate string `json:"probation_end_date" example:"2024-04-01"`
 	IsFormal int8 `json:"is_formal" example:1`
 	ParentID *int64 `json:"parent_id" example:2`
 	ReferrerID *int64 `json:"referrer_id" example:3`
-	BaseSalary float64 `json:"base_salary" example:5000.00`
+	BaseSalary decimal.Decimal `json:"base_salary" example:"5000.00"`
 	IDCard string `json:"id_card" example:"110101199001011234"`
 	BankAccount string `json:"bank_account" example:"6222021234567890123"`
 	BankName string `json:"bank_name" example:"中国工商银行"`
@@ -47,13 +48,13 @@ type UpdateUserRequest struct {
 	Phone string `json:"phone" example:"13800138000"`
 	Email string `json:"email" example:"zhangsan@example.com"`
 	DepartmentID *int64 `json:"department_id" example:1`
-	Role int `json:"role" example:1`
+	Role int8 `json:"role" example:1`
 	EntryDate string `json:"entry_date" example:"2024-01-01"`
 	ProbationEndDate string `json:"probation_end_date" example:"2024-04-01"`
 	IsFormal int8 `json:"is_formal" example:1`
 	ParentID *int64 `json:"parent_id" example:2`
 	ReferrerID *int64 `json:"referrer_id" example:3`
-	BaseSalary float64 `json:"base_salary" example:5000.00`
+	BaseSalary decimal.Decimal `json:"base_salary" example:"5000.00"`
 	IDCard string `json:"id_card" example:"110101199001011234"`
 	BankAccount string `json:"bank_account" example:"6222021234567890123"`
 	BankName string `json:"bank_name" example:"中国工商银行"`
@@ -160,6 +161,19 @@ func (s *UserService) Create(req *CreateUserRequest, createdBy int64) error {
 		}
 	}
 
+	// 同步创建老带新引荐关系（如果有推荐人）
+	if req.ReferrerID != nil && *req.ReferrerID > 0 {
+		referral := &models.ReferralRelation{
+			ReferrerID: *req.ReferrerID,
+			ReferredID: user.ID,
+			Status:     1,
+		}
+		if err := s.db.Create(referral).Error; err != nil {
+			// 记录日志但不阻断用户创建
+			fmt.Printf("创建引荐关系失败: %v\n", err)
+		}
+	}
+
 	return nil
 }
 
@@ -220,6 +234,53 @@ func (s *UserService) Update(id int64, req *UpdateUserRequest) error {
 		return &AppError{Code: apperrors.InternalError, Message: "更新用户失败"}
 	}
 
+	// 同步更新老带新引荐关系（如果推荐人发生变化）
+	if req.ReferrerID != nil {
+		// 先查找是否已有引荐关系
+		var existingReferral models.ReferralRelation
+		err := s.db.Where("referred_id = ?", user.ID).First(&existingReferral).Error
+
+		if *req.ReferrerID > 0 {
+			// 有新的推荐人
+			if err == nil {
+				// 已存在关系，更新推荐人
+				if existingReferral.ReferrerID != *req.ReferrerID {
+					existingReferral.ReferrerID = *req.ReferrerID
+					existingReferral.Status = 1
+					if saveErr := s.db.Save(&existingReferral).Error; saveErr != nil {
+						fmt.Printf("更新引荐关系失败: %v\n", saveErr)
+					}
+				}
+			} else if errors.Is(err, gorm.ErrRecordNotFound) {
+				// 不存在关系，创建新关系
+				referral := &models.ReferralRelation{
+					ReferrerID: *req.ReferrerID,
+					ReferredID: user.ID,
+					Status:     1,
+				}
+				if createErr := s.db.Create(referral).Error; createErr != nil {
+					fmt.Printf("创建引荐关系失败: %v\n", createErr)
+				} else {
+					fmt.Printf("创建引荐关系成功: referrer_id=%d, referred_id=%d\n", *req.ReferrerID, user.ID)
+				}
+			} else {
+				// 其他错误
+				fmt.Printf("查询引荐关系失败: %v\n", err)
+			}
+		} else {
+			// 推荐人清空，终止现有关系
+			if err == nil && existingReferral.Status == 1 {
+				existingReferral.Status = 0
+				now := time.Now()
+				existingReferral.EndedAt = &now
+				existingReferral.EndedReason = "用户推荐人变更"
+				if saveErr := s.db.Save(&existingReferral).Error; saveErr != nil {
+					fmt.Printf("终止引荐关系失败: %v\n", saveErr)
+				}
+			}
+		}
+	}
+
 	return nil
 }
 
@@ -276,6 +337,35 @@ func (s *UserService) ResetPassword(id int64) (string, error) {
 	}
 
 	return newPassword, nil
+}
+
+// ChangePassword 修改密码
+func (s *UserService) ChangePassword(userID int64, oldPassword, newPassword string) error {
+	user, err := s.userRepo.FindByID(userID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return &AppError{Code: apperrors.ErrUserNotFound, Message: apperrors.GetMessage(apperrors.ErrUserNotFound)}
+		}
+		return &AppError{Code: apperrors.InternalError, Message: "系统错误"}
+	}
+
+	// 验证旧密码
+	if user.Password != appmd5.MD5Encode(oldPassword) {
+		return &AppError{Code: apperrors.ErrPasswordWrong, Message: apperrors.GetMessage(apperrors.ErrPasswordWrong)}
+	}
+
+	// 新密码不能与旧密码相同
+	if oldPassword == newPassword {
+		return &AppError{Code: 400, Message: "新密码不能与原密码相同"}
+	}
+
+	// 更新密码
+	hashedPassword := appmd5.MD5Encode(newPassword)
+	if err := s.db.Model(user).Update("password", hashedPassword).Error; err != nil {
+		return &AppError{Code: apperrors.InternalError, Message: "修改密码失败"}
+	}
+
+	return nil
 }
 
 // List 获取用户列表
@@ -376,4 +466,43 @@ func generateRandomPassword(length int) string {
 		return fmt.Sprintf("Reset%d", time.Now().Unix())
 	}
 	return hex.EncodeToString(b)[:length]
+}
+
+// GetSubordinateIDs 获取指定用户的所有下级用户ID（递归）
+func (s *UserService) GetSubordinateIDs(userID int64) ([]int64, error) {
+	var subordinateIDs []int64
+	visited := make(map[int64]bool)
+
+	var findSubordinates func(parentID int64) error
+	findSubordinates = func(parentID int64) error {
+		var users []models.User
+		if err := s.db.Where("parent_id = ?", parentID).Select("id").Find(&users).Error; err != nil {
+			return err
+		}
+		for _, user := range users {
+			if !visited[user.ID] {
+				visited[user.ID] = true
+				subordinateIDs = append(subordinateIDs, user.ID)
+				// 递归查找下级
+				if err := findSubordinates(user.ID); err != nil {
+					return err
+				}
+			}
+		}
+		return nil
+	}
+
+	if err := findSubordinates(userID); err != nil {
+		return nil, err
+	}
+	return subordinateIDs, nil
+}
+
+// GetDirectSubordinateIDs 获取指定用户的直属下级用户ID（不递归）
+func (s *UserService) GetDirectSubordinateIDs(userID int64) ([]int64, error) {
+	var ids []int64
+	if err := s.db.Model(&models.User{}).Where("parent_id = ?", userID).Pluck("id", &ids).Error; err != nil {
+		return nil, err
+	}
+	return ids, nil
 }

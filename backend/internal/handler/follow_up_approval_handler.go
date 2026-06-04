@@ -149,6 +149,7 @@ func (h *FollowUpApprovalHandler) ListMyApplications(c *gin.Context) {
 
 	page, _ := strconv.Atoi(c.Query("page"))
 	pageSize, _ := strconv.Atoi(c.Query("page_size"))
+	statusStr := c.Query("status")
 
 	if page <= 0 {
 		page = 1
@@ -157,13 +158,97 @@ func (h *FollowUpApprovalHandler) ListMyApplications(c *gin.Context) {
 		pageSize = 10
 	}
 
-	list, total, err := h.approvalService.ListByApplicant(uid, page, pageSize)
+	var status *int8
+	if statusStr != "" {
+		s, _ := strconv.Atoi(statusStr)
+		if s == 0 || s == 1 || s == 2 {
+			v := int8(s)
+			status = &v
+		}
+	}
+
+	list, total, err := h.approvalService.ListByApplicant(uid, status, page, pageSize)
 	if err != nil {
 		Error(c, 500, "查询失败")
 		return
 	}
 
 	PageResponse(c, list, total, page, pageSize)
+}
+
+// ListProcessedApprovals 查询审批人已处理的审批列表（已通过/已拒绝）
+// GET /api/follow-up-approvals/processed?status=1&page=1&page_size=10
+func (h *FollowUpApprovalHandler) ListProcessedApprovals(c *gin.Context) {
+	uid := GetUserID(c)
+
+	page, _ := strconv.Atoi(c.Query("page"))
+	pageSize, _ := strconv.Atoi(c.Query("page_size"))
+	status, _ := strconv.Atoi(c.Query("status"))
+
+	if page <= 0 {
+		page = 1
+	}
+	if pageSize <= 0 {
+		pageSize = 10
+	}
+	if status != 1 && status != 2 {
+		status = 1
+	}
+
+	list, total, err := h.approvalService.ListProcessedByApprover(uid, int8(status), page, pageSize)
+	if err != nil {
+		Error(c, 500, "查询失败")
+		return
+	}
+
+	PageResponse(c, list, total, page, pageSize)
+}
+
+// CreatePrintApproval 创建送货单打印审批
+// POST /api/orders/:id/print-approval
+func (h *FollowUpApprovalHandler) CreatePrintApproval(c *gin.Context) {
+	orderID, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		Error(c, 400, "无效的订单ID")
+		return
+	}
+
+	uid := GetUserID(c)
+	sid := GetStoreID(c)
+
+	result, err := h.approvalService.CreatePrintApproval(orderID, uid, sid)
+	if err != nil {
+		if appErr, ok := err.(*service.AppError); ok {
+			Error(c, appErr.Code, appErr.Message)
+			return
+		}
+		Error(c, 500, "操作失败: "+err.Error())
+		return
+	}
+
+	Success(c, result)
+}
+
+// GetPrintApprovalStatus 查询订单打印审批状态
+// GET /api/orders/:id/print-approval
+func (h *FollowUpApprovalHandler) GetPrintApprovalStatus(c *gin.Context) {
+	orderID, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		Error(c, 400, "无效的订单ID")
+		return
+	}
+
+	result, err := h.approvalService.GetPrintApprovalStatus(orderID)
+	if err != nil {
+		if appErr, ok := err.(*service.AppError); ok {
+			Error(c, appErr.Code, appErr.Message)
+			return
+		}
+		Error(c, 500, "查询失败")
+		return
+	}
+
+	Success(c, result)
 }
 
 // ListPendingApprovals 查询待我审批的列表

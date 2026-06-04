@@ -96,13 +96,18 @@ export function getCommissionStatus(status) {
 
 /**
  * 百分比格式化
- * @param {number} value
- * @param {number} decimals
+ * @param {number} value - 支持小数形式（如 0.15）或百分比形式（如 15）
+ * @param {number} decimals - 小数位数，默认1位
  * @returns {string}
  */
-export function formatPercent(value, decimals = 1) {
+export function formatPercent(value, decimals = 0) {
   if (value === null || value === undefined || isNaN(value)) return '0%'
-  return `${Number(value).toFixed(decimals)}%`
+  const num = Number(value)
+  // 如果值小于1（表示小数形式如0.15），乘以100转换为百分比
+  if (num <= 1) {
+    return `${(num * 100).toFixed(decimals)}%`
+  }
+  return `${num.toFixed(decimals)}%`
 }
 
 /**
@@ -116,4 +121,87 @@ export function formatFileSize(bytes) {
   const sizes = ['B', 'KB', 'MB', 'GB']
   const i = Math.floor(Math.log(bytes) / Math.log(k))
   return `${(bytes / Math.pow(k, i)).toFixed(2)} ${sizes[i]}`
+}
+
+// 别名导出，兼容不同命名习惯
+export const formatMoney = formatAmount
+export const formatDateTime = formatDate
+
+/**
+ * 金额转大写
+ * @param {number} amount - 金额
+ * @returns {string} 大写金额
+ */
+export function amountToChinese(amount) {
+  if (amount === null || amount === undefined || isNaN(amount)) return '零元整'
+  
+  const num = Math.abs(Number(amount))
+  if (num === 0) return '零元整'
+  
+  const digits = ['零', '壹', '贰', '叁', '肆', '伍', '陆', '柒', '捌', '玖']
+  const units = ['', '拾', '佰', '仟']
+  const bigUnits = ['', '万', '亿']
+  
+  let result = ''
+  let integerPart = Math.floor(num)
+  let decimalPart = Math.round((num - integerPart) * 100)
+  
+  // 处理整数部分
+  if (integerPart > 0) {
+    let unitIndex = 0
+    let zeroFlag = false
+    
+    while (integerPart > 0) {
+      let section = integerPart % 10000
+      let sectionStr = ''
+      let sectionZeroFlag = false
+      
+      for (let i = 0; i < 4 && section > 0; i++) {
+        let digit = section % 10
+        if (digit === 0) {
+          sectionZeroFlag = true
+        } else {
+          if (sectionZeroFlag) {
+            sectionStr = '零' + sectionStr
+            sectionZeroFlag = false
+          }
+          sectionStr = digits[digit] + units[i] + sectionStr
+        }
+        section = Math.floor(section / 10)
+      }
+      
+      if (sectionStr) {
+        sectionStr += bigUnits[unitIndex]
+        if (zeroFlag && !sectionStr.startsWith('零')) {
+          sectionStr = '零' + sectionStr
+        }
+        result = sectionStr + result
+        zeroFlag = false
+      } else {
+        zeroFlag = true
+      }
+      
+      integerPart = Math.floor(integerPart / 10000)
+      unitIndex++
+    }
+    
+    result += '元'
+  }
+  
+  // 处理小数部分
+  if (decimalPart > 0) {
+    const jiao = Math.floor(decimalPart / 10)
+    const fen = decimalPart % 10
+    
+    if (jiao > 0) {
+      result += digits[jiao] + '角'
+    }
+    if (fen > 0) {
+      result += digits[fen] + '分'
+    }
+  } else {
+    result += '整'
+  }
+  
+  return result
 }

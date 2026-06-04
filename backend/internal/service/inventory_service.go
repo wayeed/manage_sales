@@ -223,6 +223,100 @@ func (s *InventoryService) DeductStock(warehouseID, skuID int64, quantity int, s
 	return costDetails, nil
 }
 
+// DeductLockedStock 将锁定库存转为实际出库（送货出库时调用）
+// 与DeductStock的区别：available_quantity已经在LockStock时减少，这里只需减少locked_quantity和stock_quantity
+func (s *InventoryService) DeductLockedStock(warehouseID, skuID int64, quantity int, storeID int64, orderID int64, createdBy int64) ([]CostDetail, error) {
+	// 新流程：直接使用审核时已锁定的批次
+	// 查询订单商品中已绑定的批次
+	var orderItems []models.OrderItem
+	if err := s.db.Where("order_id = ? AND sku_id = ? AND batch_id IS NOT NULL AND batch_id > 0", orderID, skuID).Find(&orderItems).Error; err != nil {
+		return nil, &AppError{Code: apperrors.InternalError, Message: "查询订单商品失败"}
+	}
+
+	// 获取当前库存
+	stock, err := s.invRepo.FindStockByWarehouseAndSKU(warehouseID, skuID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, &AppError{Code: apperrors.ErrInsufficientStock, Message: "库存记录不存在"}
+		}
+		return nil, &AppError{Code: apperrors.InternalError, Message: "系统错误"}
+	}
+
+	if stock.LockedQuantity < quantity {
+		return nil, &AppError{Code: apperrors.ErrInsufficientStock, Message: "锁定库存不足"}
+	}
+
+	var costDetails []CostDetail
+	now := time.Now()
+
+	// 使用已绑定的批次扣减
+	for _, item := range orderItems {
+		if item.BatchID == nil || *item.BatchID == 0 {
+			continue
+		}
+
+		var batch models.InventoryBatch
+		if err := s.db.First(&batch, *item.BatchID).Error; err != nil {
+			continue
+		}
+
+		deductQty := item.Quantity
+
+		// 扣减批次剩余数量
+		batch.RemainingQuantity -= deductQty
+		if batch.RemainingQuantity <= 0 {
+			batch.RemainingQuantity = 0
+			batch.Status = 0
+		}
+		if err := s.invRepo.UpdateBatch(&batch); err != nil {
+			return nil, &AppError{Code: apperrors.InternalError, Message: "更新批次失败"}
+		}
+
+		// 记录库存流水
+		tx := &models.InventoryTransaction{
+			StoreID:         storeID,
+			WarehouseID:     &warehouseID,
+			TransactionType: models.TransactionTypeLockToOut, // 11: 销售锁定转出库
+			BizType:         1,
+			BizID:           &skuID,
+			BatchID:         item.BatchID,
+			RelatedOrderID:  &orderID,
+			Quantity:        deductQty,
+			BeforeStock:     batch.RemainingQuantity + deductQty,
+			AfterStock:      batch.RemainingQuantity,
+			UnitCost:        batch.PurchasePrice,
+			TotalCost:       batch.PurchasePrice.Mul(decimal.NewFromInt(int64(deductQty))),
+			CreatedBy:       int64Ptr(createdBy),
+			CreatedAt:       now,
+		}
+		if err := s.invRepo.CreateTransaction(tx); err != nil {
+			return nil, &AppError{Code: apperrors.InternalError, Message: "记录库存流水失败"}
+		}
+
+		costDetails = append(costDetails, CostDetail{
+			BatchID:   *item.BatchID,
+			UnitCost:  batch.PurchasePrice,
+			Quantity:  deductQty,
+			TotalCost: batch.PurchasePrice.Mul(decimal.NewFromInt(int64(deductQty))),
+		})
+	}
+
+	// 更新warehouse_stocks：locked -= qty, stock -= qty
+	rowsAffected, err := s.invRepo.UpdateStockWithLock(warehouseID, skuID, stock.Version, map[string]interface{}{
+		"locked_quantity": gorm.Expr("locked_quantity - ?", quantity),
+		"stock_quantity":  gorm.Expr("stock_quantity - ?", quantity),
+		"version":         gorm.Expr("version + 1"),
+	})
+	if err != nil {
+		return nil, &AppError{Code: apperrors.InternalError, Message: "更新库存失败"}
+	}
+	if rowsAffected == 0 {
+		return nil, &AppError{Code: apperrors.ErrInsufficientStock, Message: "库存已被修改，请重试"}
+	}
+
+	return costDetails, nil
+}
+
 // AddStock 增加库存（采购入库时调用）
 func (s *InventoryService) AddStock(warehouseID, skuID int64, quantity int, purchasePrice, totalCost decimal.Decimal, batchNo string, purchaseOrderID int64, storeID int64, createdBy int64, transactionType int8) error {
 	now := time.Now()
@@ -306,6 +400,314 @@ func (s *InventoryService) AddStock(warehouseID, skuID int64, quantity int, purc
 	return nil
 }
 
+// LockStockByBatch 按批次FIFO锁定库存（审核通过时调用）
+// 优先从指定仓库锁定，不足时跨仓库锁定
+// 返回锁定的批次明细列表
+func (s *InventoryService) LockStockByBatch(warehouseID, skuID int64, quantity int, orderID int64, storeID int64) ([]CostDetail, error) {
+	// 1. 查询指定仓库的可用库存总量
+	stock, err := s.invRepo.FindStockByWarehouseAndSKU(warehouseID, skuID)
+	if err == nil && stock.AvailableQuantity >= quantity {
+		// 指定仓库库存充足，只在指定仓库锁定
+		return s.lockStockInWarehouse(warehouseID, skuID, quantity, stock.Version)
+	}
+
+	// 2. 指定仓库不足或无记录，跨仓库查询所有可用库存
+	crossWarehouseBatches, err := s.invRepo.FindBatchesBySKU(skuID, 0)
+	if err != nil {
+		return nil, &AppError{Code: apperrors.InternalError, Message: "查询批次失败"}
+	}
+
+	// 计算跨仓库可用总量
+	var totalAvailable int
+	for _, b := range crossWarehouseBatches {
+		if b.RemainingQuantity > 0 && b.Status == 1 {
+			totalAvailable += b.RemainingQuantity
+		}
+	}
+
+	if totalAvailable < quantity {
+		return nil, nil // 可用库存不足，返回空（表示缺货，进入排队）
+	}
+
+	// 3. 逐批次锁定（跨仓库FIFO）
+	var costDetails []CostDetail
+	remaining := quantity
+
+	// 先锁定指定仓库的库存
+	if stock != nil && stock.AvailableQuantity > 0 {
+		whBatches, _ := s.invRepo.FindBatchesBySKU(skuID, warehouseID)
+		for i := range whBatches {
+			if remaining <= 0 {
+				break
+			}
+			batch := &whBatches[i]
+			if batch.RemainingQuantity <= 0 || batch.Status == 0 {
+				continue
+			}
+
+			lockQty := batch.RemainingQuantity
+			if lockQty > remaining {
+				lockQty = remaining
+			}
+
+			batch.RemainingQuantity -= lockQty
+			if batch.RemainingQuantity == 0 {
+				batch.Status = 0
+			}
+			if err := s.invRepo.UpdateBatch(batch); err != nil {
+				return nil, &AppError{Code: apperrors.InternalError, Message: "更新批次失败"}
+			}
+
+			unitCost := batch.PurchasePrice
+			totalCost := unitCost.Mul(decimal.NewFromInt(int64(lockQty)))
+			costDetails = append(costDetails, CostDetail{
+				BatchID:   batch.ID,
+				UnitCost:  unitCost,
+				Quantity:  lockQty,
+				TotalCost: totalCost,
+			})
+			remaining -= lockQty
+		}
+
+		// 更新指定仓库库存
+		lockedInWH := quantity - remaining
+		if lockedInWH > 0 {
+			s.invRepo.UpdateStockWithLock(warehouseID, skuID, stock.Version, map[string]interface{}{
+				"locked_quantity":    gorm.Expr("locked_quantity + ?", lockedInWH),
+				"available_quantity": gorm.Expr("available_quantity - ?", lockedInWH),
+				"version":            gorm.Expr("version + 1"),
+			})
+		}
+	}
+
+	// 再锁定其他仓库的库存
+	for i := range crossWarehouseBatches {
+		if remaining <= 0 {
+			break
+		}
+		batch := &crossWarehouseBatches[i]
+		if batch.RemainingQuantity <= 0 || batch.Status == 0 {
+			continue
+		}
+		// 跳过已在指定仓库锁定的批次
+		if batch.WarehouseID != nil && *batch.WarehouseID == warehouseID {
+			continue
+		}
+
+		lockQty := batch.RemainingQuantity
+		if lockQty > remaining {
+			lockQty = remaining
+		}
+
+		batch.RemainingQuantity -= lockQty
+		if batch.RemainingQuantity == 0 {
+			batch.Status = 0
+		}
+		if err := s.invRepo.UpdateBatch(batch); err != nil {
+			return nil, &AppError{Code: apperrors.InternalError, Message: "更新批次失败"}
+		}
+
+		unitCost := batch.PurchasePrice
+		totalCost := unitCost.Mul(decimal.NewFromInt(int64(lockQty)))
+		costDetails = append(costDetails, CostDetail{
+			BatchID:   batch.ID,
+			UnitCost:  unitCost,
+			Quantity:  lockQty,
+			TotalCost: totalCost,
+		})
+		remaining -= lockQty
+
+		// 更新对应仓库的库存
+		if batch.WarehouseID != nil {
+			var whStock models.WarehouseStock
+			if _, err := s.invRepo.FindStockByWarehouseAndSKU(*batch.WarehouseID, skuID); err == nil {
+				// 重新查询获取最新版本
+				s.db.Where("warehouse_id = ? AND sku_id = ?", *batch.WarehouseID, skuID).First(&whStock)
+				s.invRepo.UpdateStockWithLock(*batch.WarehouseID, skuID, whStock.Version, map[string]interface{}{
+					"locked_quantity":    gorm.Expr("locked_quantity + ?", lockQty),
+					"available_quantity": gorm.Expr("available_quantity - ?", lockQty),
+					"version":            gorm.Expr("version + 1"),
+				})
+			}
+		}
+	}
+
+	if remaining > 0 {
+		return nil, &AppError{Code: apperrors.InternalError, Message: "库存锁定异常：批次库存不足"}
+	}
+
+	return costDetails, nil
+}
+
+// lockStockInWarehouse 在指定仓库内按批次FIFO锁定库存
+func (s *InventoryService) lockStockInWarehouse(warehouseID, skuID int64, quantity int, version int) ([]CostDetail, error) {
+	batches, err := s.invRepo.FindBatchesBySKU(skuID, warehouseID)
+	if err != nil {
+		return nil, &AppError{Code: apperrors.InternalError, Message: "查询批次失败"}
+	}
+
+	var costDetails []CostDetail
+	remaining := quantity
+
+	for i := range batches {
+		if remaining <= 0 {
+			break
+		}
+		batch := &batches[i]
+		if batch.RemainingQuantity <= 0 || batch.Status == 0 {
+			continue
+		}
+
+		lockQty := batch.RemainingQuantity
+		if lockQty > remaining {
+			lockQty = remaining
+		}
+
+		batch.RemainingQuantity -= lockQty
+		if batch.RemainingQuantity == 0 {
+			batch.Status = 0
+		}
+		if err := s.invRepo.UpdateBatch(batch); err != nil {
+			return nil, &AppError{Code: apperrors.InternalError, Message: "更新批次失败"}
+		}
+
+		unitCost := batch.PurchasePrice
+		totalCost := unitCost.Mul(decimal.NewFromInt(int64(lockQty)))
+		costDetails = append(costDetails, CostDetail{
+			BatchID:   batch.ID,
+			UnitCost:  unitCost,
+			Quantity:  lockQty,
+			TotalCost: totalCost,
+		})
+		remaining -= lockQty
+	}
+
+	if remaining > 0 {
+		return nil, &AppError{Code: apperrors.InternalError, Message: "库存锁定异常：批次库存不足"}
+	}
+
+	// 更新仓库库存
+	rowsAffected, err := s.invRepo.UpdateStockWithLock(warehouseID, skuID, version, map[string]interface{}{
+		"locked_quantity":    gorm.Expr("locked_quantity + ?", quantity),
+		"available_quantity": gorm.Expr("available_quantity - ?", quantity),
+		"version":            gorm.Expr("version + 1"),
+	})
+	if err != nil {
+		return nil, &AppError{Code: apperrors.InternalError, Message: "锁定库存失败"}
+	}
+	if rowsAffected == 0 {
+		return nil, &AppError{Code: apperrors.ErrInsufficientStock, Message: "库存已被修改，请重试"}
+	}
+
+	return costDetails, nil
+}
+
+// GetAvailableStock 获取SKU可用库存
+func (s *InventoryService) GetAvailableStock(warehouseID, skuID int64) (int, error) {
+	stock, err := s.invRepo.FindStockByWarehouseAndSKU(warehouseID, skuID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return 0, nil
+		}
+		return 0, err
+	}
+	return stock.AvailableQuantity, nil
+}
+
+// AllocateStockToQueue 采购入库后自动分配库存到缺货排队订单
+// 按订单先后顺序（FIFO）依次分配
+func (s *InventoryService) AllocateStockToQueue(db *gorm.DB, warehouseID, skuID int64, batchID int64, batchPurchasePrice decimal.Decimal, availableQty int, storeID int64) error {
+	if availableQty <= 0 {
+		return nil
+	}
+
+	// 查询该SKU的排队记录（按创建时间升序）
+	var queues []models.StockQueue
+	if err := db.Where("sku_id = ? AND status IN (0, 1) AND quantity > allocated_qty", skuID).
+		Order("created_at ASC").
+		Find(&queues).Error; err != nil {
+		return &AppError{Code: apperrors.InternalError, Message: "查询排队记录失败"}
+	}
+
+	remaining := availableQty
+	for i := range queues {
+		if remaining <= 0 {
+			break
+		}
+		q := &queues[i]
+		needQty := q.Quantity - q.AllocatedQty // 还需要分配的数量
+
+		allocQty := needQty
+		if allocQty > remaining {
+			allocQty = remaining
+		}
+
+		// 更新排队记录
+		q.AllocatedQty += allocQty
+		if q.AllocatedQty >= q.Quantity {
+			q.Status = 2 // 全部分配
+		} else {
+			q.Status = 1 // 部分分配
+		}
+		if err := db.Save(q).Error; err != nil {
+			return &AppError{Code: apperrors.InternalError, Message: "更新排队记录失败"}
+		}
+
+		// 更新order_items：写入batch_id和成本
+		unitCost := batchPurchasePrice
+		totalCost := unitCost.Mul(decimal.NewFromInt(int64(allocQty)))
+		if err := db.Model(&models.OrderItem{}).Where("id = ?", q.OrderItemID).Updates(map[string]interface{}{
+			"batch_id":   batchID,
+			"unit_cost":  unitCost,
+			"total_cost": totalCost,
+		}).Error; err != nil {
+			return &AppError{Code: apperrors.InternalError, Message: "更新订单商品批次失败"}
+		}
+
+		// 更新仓库库存：available -= qty, locked += qty
+		var stock models.WarehouseStock
+		if err := db.Where("warehouse_id = ? AND sku_id = ?", warehouseID, skuID).First(&stock).Error; err == nil {
+			db.Model(&stock).Updates(map[string]interface{}{
+				"locked_quantity":    gorm.Expr("locked_quantity + ?", allocQty),
+				"available_quantity": gorm.Expr("available_quantity - ?", allocQty),
+				"version":            gorm.Expr("version + 1"),
+			})
+		}
+
+		// 记录库存流水
+		invTx := &models.InventoryTransaction{
+			StoreID:         storeID,
+			WarehouseID:     &warehouseID,
+			TransactionType: 9, // 库存锁定
+			BizType:         1,
+			BizID:           &skuID,
+			RelatedOrderID:  &q.OrderID,
+			Quantity:        allocQty,
+			Remark:          "采购入库自动分配缺货订单",
+			CreatedAt:       time.Now(),
+		}
+		db.Create(invTx)
+
+		remaining -= allocQty
+
+		// 检查该订单是否所有商品都已分配库存，更新订单stock_status
+		if q.AllocatedQty >= q.Quantity {
+			// 查询该订单还有多少个未分配的排队记录
+			var pendingCount int64
+			db.Model(&models.StockQueue{}).Where("order_id = ? AND status IN (0, 1)", q.OrderID).Count(&pendingCount)
+			if pendingCount == 0 {
+				// 全部缺货商品都已分配，更新订单为全部有库存
+				db.Model(&models.Order{}).Where("id = ?", q.OrderID).Update("stock_status", 0)
+			} else {
+				// 还有部分缺货，更新为部分缺货状态
+				db.Model(&models.Order{}).Where("id = ?", q.OrderID).Update("stock_status", 1)
+			}
+		}
+	}
+
+	return nil
+}
+
 // GetStock 获取库存
 func (s *InventoryService) GetStock(warehouseID, skuID int64) (*models.WarehouseStock, error) {
 	stock, err := s.invRepo.FindStockByWarehouseAndSKU(warehouseID, skuID)
@@ -318,8 +720,20 @@ func (s *InventoryService) GetStock(warehouseID, skuID int64) (*models.Warehouse
 	return stock, nil
 }
 
+// GetStockByID 根据ID查询库存详情
+func (s *InventoryService) GetStockByID(id int64) (*models.WarehouseStock, error) {
+	var stock models.WarehouseStock
+	if err := s.db.Preload("Warehouse").Preload("SKU.Product").First(&stock, id).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, &AppError{Code: apperrors.NotFound, Message: "库存记录不存在"}
+		}
+		return nil, &AppError{Code: apperrors.InternalError, Message: "查询库存失败"}
+	}
+	return &stock, nil
+}
+
 // GetStockList 获取仓库库存列表
-func (s *InventoryService) GetStockList(warehouseID int64, keyword string, page, pageSize int) ([]models.WarehouseStock, int64, error) {
+func (s *InventoryService) GetStockList(warehouseID int64, skuID int64, keyword string, page, pageSize int) ([]models.WarehouseStock, int64, error) {
 	if page <= 0 {
 		page = 1
 	}
@@ -327,7 +741,7 @@ func (s *InventoryService) GetStockList(warehouseID int64, keyword string, page,
 		pageSize = 10
 	}
 
-	stocks, total, err := s.invRepo.GetStockList(warehouseID, keyword, page, pageSize)
+	stocks, total, err := s.invRepo.GetStockList(warehouseID, skuID, keyword, page, pageSize)
 	if err != nil {
 		return nil, 0, &AppError{Code: apperrors.InternalError, Message: "查询库存列表失败"}
 	}
@@ -535,4 +949,121 @@ func (s *InventoryService) GetTransactionList(warehouseID int64, transactionType
 		return nil, 0, &AppError{Code: apperrors.InternalError, Message: "查询库存流水失败"}
 	}
 	return transactions, total, nil
+}
+
+// CheckStockForOrder 检查订单商品库存是否充足
+// 返回库存不足的商品列表，如果全部充足则返回空列表
+func (s *InventoryService) CheckStockForOrder(warehouseID int64, items []models.OrderItem) ([]StockCheckResult, error) {
+	results := make([]StockCheckResult, 0)
+
+	for _, item := range items {
+		stock, err := s.GetStock(warehouseID, item.SKUID)
+		if err != nil {
+			return nil, err
+		}
+
+                availableQty := 0
+                lockedQty := 0
+                if stock != nil {
+                        availableQty = stock.AvailableQuantity
+                        lockedQty = stock.LockedQuantity
+                }
+
+                // 出库时：可用库存 + 锁定库存（审核时已锁定，锁定库存也是为该订单准备的）
+                totalAvailable := availableQty + lockedQty
+                if totalAvailable < item.Quantity {
+                        results = append(results, StockCheckResult{
+                                SKUID:           item.SKUID,
+                                ProductName:     item.ProductName,
+                                SKUName:         item.SKUName,
+                                RequiredQty:     item.Quantity,
+                                AvailableQty:    totalAvailable,
+                                IsSufficient:    false,
+                        })
+
+                }
+        }
+
+	return results, nil
+}
+
+// StockCheckResult 库存检查结果
+type StockCheckResult struct {
+	SKUID        int64  `json:"sku_id"`
+	ProductName  string `json:"product_name"`
+	SKUName      string `json:"sku_name"`
+	RequiredQty  int    `json:"required_qty"`     // 订单需求数量
+	AvailableQty int    `json:"available_qty"`    // 可用库存数量
+	IsSufficient bool   `json:"is_sufficient"`    // 是否充足
+}
+
+// IncreaseStock 增加库存（退货入库）
+func (s *InventoryService) IncreaseStock(skuID int64, quantity int, storeID int64, warehouseID int64, orderID int64, operatorID int64, remark string) error {
+	// 使用传入的仓库ID
+
+	// 尝试查找现有库存记录
+	var stock models.WarehouseStock
+	err := s.db.Where("sku_id = ? AND warehouse_id = ?", skuID, warehouseID).First(&stock).Error
+	if err != nil && err != gorm.ErrRecordNotFound {
+		return &AppError{Code: apperrors.InternalError, Message: "查询库存失败"}
+	}
+
+	beforeQty := 0
+	afterQty := 0
+
+	// 更新库存数量
+	if err == gorm.ErrRecordNotFound {
+		// 创建新库存记录
+		stock = models.WarehouseStock{
+			WarehouseID:       warehouseID,
+			SKUID:             skuID,
+			StockQuantity:     quantity,
+			AvailableQuantity: quantity,
+			LockedQuantity:    0,
+			WarningStock:      10,
+			Version:           0,
+		}
+		if err := s.db.Create(&stock).Error; err != nil {
+			return &AppError{Code: apperrors.InternalError, Message: "创建库存记录失败"}
+		}
+		beforeQty = 0
+		afterQty = quantity
+	} else {
+		// 更新已有库存记录
+		beforeQty = stock.StockQuantity
+		afterQty = beforeQty + quantity
+
+		rowsAffected, err := s.invRepo.UpdateStockWithLock(warehouseID, skuID, stock.Version, map[string]interface{}{
+			"stock_quantity":     gorm.Expr("stock_quantity + ?", quantity),
+			"available_quantity": gorm.Expr("available_quantity + ?", quantity),
+			"version":            gorm.Expr("version + 1"),
+		})
+		if err != nil {
+			return &AppError{Code: apperrors.InternalError, Message: "更新库存失败"}
+		}
+		if rowsAffected == 0 {
+			return &AppError{Code: apperrors.ErrInsufficientStock, Message: "库存已被修改，请重试"}
+		}
+	}
+
+	// 创建库存流水记录（使用退货入库类型）
+	tx := &models.InventoryTransaction{
+		StoreID:         storeID,
+		WarehouseID:     &warehouseID,
+		TransactionType: 12, // 退货入库
+		BizType:         1, // 商品
+		BizID:           &skuID,
+		RelatedOrderID:   &orderID,
+		Quantity:        quantity,
+		BeforeStock:      beforeQty,
+		AfterStock:       afterQty,
+		Remark:          remark,
+		CreatedBy:        int64Ptr(operatorID),
+		CreatedAt:        time.Now(),
+	}
+	if err := s.invRepo.CreateTransaction(tx); err != nil {
+		return &AppError{Code: apperrors.InternalError, Message: "记录库存流水失败"}
+	}
+
+	return nil
 }

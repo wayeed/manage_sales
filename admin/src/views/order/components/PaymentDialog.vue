@@ -1,5 +1,5 @@
 <template>
-  
+
 <el-dialog v-dialog-drag
     :model-value="visible"
     title="回款录入"
@@ -48,6 +48,20 @@
           placeholder="请输入备注（选填）"
         />
       </el-form-item>
+      <el-form-item label="付款凭证">
+        <el-upload
+          class="voucher-uploader"
+          :action="uploadUrl"
+          :headers="uploadHeaders"
+          :show-file-list="false"
+          :on-success="handleUploadSuccess"
+          :before-upload="beforeUpload"
+          accept="image/*"
+        >
+          <el-image v-if="formData.voucher_url" :src="formData.voucher_url" fit="cover" class="voucher-preview" />
+          <el-icon v-else class="voucher-uploader-icon"><Plus /></el-icon>
+        </el-upload>
+      </el-form-item>
     </el-form>
     <template #footer>
       <el-button @click="handleClose">取消</el-button>
@@ -61,6 +75,8 @@
 <script setup>
 import { ref, reactive, watch } from 'vue'
 import { ElMessage } from 'element-plus'
+import { Plus } from '@element-plus/icons-vue'
+import { getToken } from '@/utils/auth'
 import { createPayment } from '@/api/payment'
 
 const props = defineProps({
@@ -79,17 +95,43 @@ const emit = defineEmits(['update:visible', 'success'])
 const formRef = ref(null)
 const submitLoading = ref(false)
 
+const uploadUrl = '/api/upload/image'
+const uploadHeaders = { Authorization: 'Bearer ' + getToken() }
+
 const formData = reactive({
   amount: null,
   payment_date: '',
   payment_method: '',
   remark: '',
+  voucher_url: '',
 })
 
 const formRules = {
   amount: [{ required: true, message: '请输入回款金额', trigger: 'blur' }],
   payment_date: [{ required: true, message: '请选择回款日期', trigger: 'change' }],
   payment_method: [{ required: true, message: '请选择回款方式', trigger: 'change' }],
+}
+
+const beforeUpload = (file) => {
+  const isImage = file.type.startsWith('image/')
+  const isLt5M = file.size / 1024 / 1024 < 5
+  if (!isImage) {
+    ElMessage.error('只能上传图片文件')
+    return false
+  }
+  if (!isLt5M) {
+    ElMessage.error('图片大小不能超过5MB')
+    return false
+  }
+  return true
+}
+
+const handleUploadSuccess = (response) => {
+  if (response.errno === 0 && response.data && response.data.url) {
+    formData.voucher_url = response.data.url
+  } else {
+    ElMessage.error('上传失败')
+  }
 }
 
 watch(
@@ -100,6 +142,7 @@ watch(
       formData.payment_date = ''
       formData.payment_method = ''
       formData.remark = ''
+      formData.voucher_url = ''
     }
   }
 )
@@ -120,6 +163,7 @@ const handleSubmit = async () => {
       payment_date: formData.payment_date,
       payment_method: formData.payment_method,
       remark: formData.remark,
+      voucher_url: formData.voucher_url,
     })
     ElMessage.success('回款录入成功')
     handleClose()
@@ -131,3 +175,29 @@ const handleSubmit = async () => {
   }
 }
 </script>
+
+<style scoped>
+.voucher-uploader .el-upload {
+  border: 1px dashed var(--el-border-color);
+  border-radius: 6px;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  width: 120px;
+  height: 120px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.voucher-uploader .el-upload:hover {
+  border-color: var(--el-color-primary);
+}
+.voucher-preview {
+  width: 120px;
+  height: 120px;
+}
+.voucher-uploader-icon {
+  font-size: 28px;
+  color: #8c939d;
+}
+</style>

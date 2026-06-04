@@ -2,25 +2,29 @@
   <view class="create-page">
     <!-- 客户信息 -->
     <view class="form-section card">
-      <text class="section-title">客户信息</text>
-      <view class="form-item">
-        <text class="form-label">客户姓名 <text class="required">*</text></text>
-        <view class="select-customer-row" @tap="openCustomerSelect">
-          <input
-            v-model="form.customerName"
-            class="input-field"
-            placeholder="点击选择客户"
-            disabled
-          />
-          <text class="select-btn">选择</text>
+      <view class="customer-header">
+        <text class="section-title">客户信息</text>
+        <view class="customer-select-btn" @tap="openCustomerSelect">
+          <text class="customer-select-btn-text">{{ selectedCustomer ? '更换' : '选择' }}</text>
         </view>
       </view>
-      <view class="form-item">
-        <text class="form-label">手机号</text>
-        <input v-model="form.customerPhone" class="input-field" type="number" maxlength="11" placeholder="选择客户后自动填充" disabled />
+      <view v-if="selectedCustomer" class="customer-detail">
+        <view class="customer-main">
+          <text class="customer-name">{{ form.customerName }}</text>
+          <text class="customer-phone">{{ form.customerPhone || '-' }}</text>
+        </view>
+        <view v-if="selectedCustomer.address" class="customer-address-row">
+          <text class="customer-address-label">地址</text>
+          <text class="customer-address-value">{{ selectedCustomer.address }}</text>
+        </view>
+        <view class="customer-salesman-row">
+          <text class="customer-salesman-label">业务员</text>
+          <text class="customer-salesman-value">{{ form.salesmanName || selectedCustomer.salesman?.real_name || selectedCustomer.salesman_name || '无' }}</text>
+        </view>
       </view>
-      <view v-if="selectedCustomer" class="customer-info">
-        <text class="customer-salesman">负责业务员: {{ selectedCustomer.salesman_name || '无' }}</text>
+      <view v-else class="customer-empty" @tap="openCustomerSelect">
+        <text class="customer-empty-text">点击选择客户</text>
+        <text class="customer-empty-hint">客户姓名、手机号、地址将自动填充</text>
       </view>
     </view>
 
@@ -45,6 +49,21 @@
       </view>
     </view>
 
+    <!-- 订单备注 -->
+    <view class="form-section card">
+      <view class="section-header-row">
+        <text class="section-title">订单备注</text>
+      </view>
+      <view class="form-item">
+        <textarea
+          v-model="form.remark"
+          class="textarea-field"
+          placeholder="请输入订单备注（选填）"
+          :maxlength="500"
+        />
+      </view>
+    </view>
+
     <!-- 商品列表 -->
     <view class="form-section card">
       <view class="section-header-row">
@@ -54,49 +73,47 @@
         </view>
       </view>
       <view v-if="form.products.length > 0">
-        <view v-for="(product, pIndex) in form.products" :key="pIndex" class="product-card">
-          <view class="product-header">
-            <text class="product-index">商品{{ pIndex + 1 }}</text>
-            <text class="product-delete" @tap="removeProduct(pIndex)">删除</text>
+        <view v-for="(product, pIndex) in form.products" :key="pIndex" class="product-card" @tap="openProductSelect(pIndex)">
+          <!-- 第一行：序号 + 商品名称 + 删除 -->
+          <view class="pc-row pc-row--header">
+            <text class="pc-index">{{ pIndex + 1 }}</text>
+            <text class="pc-name" @tap.stop="showProductName(product.name)">{{ product.name || '点击选择商品' }}</text>
+            <text class="pc-delete" @tap.stop="removeProduct(pIndex)">删除</text>
           </view>
-          <view class="form-item">
-            <text class="form-label">商品名称 <text class="required">*</text></text>
-            <view class="select-product-row" @tap="openProductSelect(pIndex)">
-              <input v-model="product.name" class="input-field" placeholder="点击选择商品" disabled />
-              <text class="select-btn">选择</text>
-            </view>
+          <!-- 第二行：SKU + 库存 -->
+          <view class="pc-row pc-row--meta">
+            <text class="pc-sku">{{ product.sku || '-' }}</text>
+            <text class="pc-stock" :class="{ 'pc-stock--empty': (product.stock || 0) <= 0 }">库存: {{ product.stock || 0 }}</text>
           </view>
-          <view class="form-item">
-            <text class="form-label">SKU</text>
-            <input v-model="product.sku" class="input-field" placeholder="选择商品后自动填充" disabled />
-          </view>
-          <view class="form-row">
-            <view class="form-item form-item-half">
-              <text class="form-label">数量</text>
-              <view class="quantity-control">
-                <view class="qty-btn" @tap="changeQty(pIndex, -1)"><text class="qty-btn-text">-</text></view>
-                <input v-model.number="product.quantity" class="qty-input" type="number" placeholder="0" />
-                <view class="qty-btn" @tap="changeQty(pIndex, 1)"><text class="qty-btn-text">+</text></view>
+          <!-- 第三行：数量 + 挂牌价 + 销售价 -->
+          <view class="pc-row pc-row--price" @tap.stop>
+            <view class="pc-qty">
+              <text class="pc-label">数量</text>
+              <view class="pc-qty-control">
+                <view class="pc-qty-btn" @tap="changeQty(pIndex, -1)"><text class="pc-qty-btn-text">-</text></view>
+                <input v-model.number="product.quantity" class="pc-qty-input" type="number" placeholder="0" @tap.stop />
+                <view class="pc-qty-btn" @tap="changeQty(pIndex, 1)"><text class="pc-qty-btn-text">+</text></view>
               </view>
             </view>
-            <view class="form-item form-item-half">
-              <text class="form-label">挂牌价(元)</text>
-              <input v-model.number="product.listPrice" class="input-field" type="digit" placeholder="挂牌价" disabled />
+            <view class="pc-price-item">
+              <text class="pc-label">挂牌价</text>
+              <text class="pc-price-value pc-price-value--list">¥{{ product.listPrice || '0.00' }}</text>
+            </view>
+            <view class="pc-price-item">
+              <text class="pc-label">销售价</text>
+              <input
+                v-model.number="product.salePrice"
+                class="pc-sale-input"
+                :class="{ 'pc-sale-input--error': product.minPrice && product.salePrice < product.minPrice }"
+                type="digit"
+                placeholder="0.00"
+                @blur="validateSalePrice(product)"
+                @tap.stop
+              />
             </view>
           </view>
-          <view class="form-item">
-            <text class="form-label">销售价(元) <text class="required">*</text></text>
-            <input 
-              v-model.number="product.salePrice" 
-              class="input-field" 
-              :class="{ 'input-error': product.minPrice && product.salePrice < product.minPrice }"
-              type="digit" 
-              placeholder="请输入销售价" 
-              @blur="validateSalePrice(product)"
-            />
-            <text v-if="product.minPrice" class="price-hint">最低价: ¥{{ product.minPrice }}</text>
-            <text v-if="product.minPrice && product.salePrice < product.minPrice" class="price-error">销售价不能低于最低价</text>
-          </view>
+          <!-- 最低价提示 -->
+          <text v-if="product.minPrice && product.salePrice < product.minPrice" class="pc-error" @tap.stop>销售价不能低于最低价 ¥{{ product.minPrice }}</text>
         </view>
       </view>
       <view v-else class="empty-product">
@@ -111,22 +128,31 @@
         <text class="toggle-text">{{ showGift ? '收起' : '展开' }}</text>
       </view>
       <view v-if="showGift">
-        <view v-for="(gift, gIndex) in form.gifts" :key="gIndex" class="gift-card">
-          <view class="gift-header">
-            <text class="gift-index">礼品{{ gIndex + 1 }}</text>
-            <text class="gift-delete" @tap="removeGift(gIndex)">删除</text>
+        <view v-for="(gift, gIndex) in form.gifts" :key="gIndex" class="product-card" @tap="openGiftSelect(gIndex)">
+          <!-- 第一行：序号 + 礼品名称 + 删除 -->
+          <view class="pc-row pc-row--header">
+            <text class="pc-index pc-index--gift">G{{ gIndex + 1 }}</text>
+            <text class="pc-name">{{ gift.name || '点击选择礼品' }}</text>
+            <text class="pc-delete" @tap.stop="removeGift(gIndex)">删除</text>
           </view>
-          <view class="form-item">
-            <text class="form-label">礼品名称</text>
-            <input v-model="gift.name" class="input-field" placeholder="请输入礼品名称" />
+          <!-- 第二行：成本价 + 库存 -->
+          <view v-if="gift.name" class="pc-row pc-row--meta">
+            <text class="pc-sku">成本价: ¥{{ gift.costPrice || '0.00' }}</text>
+            <text class="pc-stock" :class="{ 'pc-stock--empty': gift.stockQuantity && gift.quantity > gift.stockQuantity }">
+              库存: {{ gift.stockQuantity || '-' }}
+            </text>
           </view>
-          <view class="form-item">
-            <text class="form-label">数量</text>
-            <view class="quantity-control">
-              <view class="qty-btn" @tap="changeGiftQty(gIndex, -1)"><text class="qty-btn-text">-</text></view>
-              <input v-model.number="gift.quantity" class="qty-input" type="number" placeholder="0" />
-              <view class="qty-btn" @tap="changeGiftQty(gIndex, 1)"><text class="qty-btn-text">+</text></view>
+          <!-- 第三行：数量 -->
+          <view class="pc-row pc-row--price" @tap.stop>
+            <view class="pc-qty">
+              <text class="pc-label">数量</text>
+              <view class="pc-qty-control">
+                <view class="pc-qty-btn" @tap="changeGiftQty(gIndex, -1)"><text class="pc-qty-btn-text">-</text></view>
+                <input v-model.number="gift.quantity" class="pc-qty-input" type="number" placeholder="0" @tap.stop />
+                <view class="pc-qty-btn" @tap="changeGiftQty(gIndex, 1)"><text class="pc-qty-btn-text">+</text></view>
+              </view>
             </view>
+            <text v-if="gift.stockQuantity && gift.quantity > gift.stockQuantity" class="pc-error">数量超过库存上限</text>
           </view>
         </view>
         <view class="add-gift-btn" @tap="addGift">
@@ -221,18 +247,30 @@
     <CommissionEstimate
       :visible="showCommissionEstimate"
       :items="form.products"
-      :isPeerOrder="!!form.companionName"
+      :gifts="form.gifts"
+      :isPeerOrder="!!form.peerId"
       @close="closeCommissionEstimate"
+    />
+
+    <!-- 礼品选择弹窗 -->
+    <GiftSelect
+      :visible="showGiftSelect"
+      :excludeIds="selectedGiftIds"
+      @close="closeGiftSelect"
+      @select="onGiftSelect"
     />
   </view>
 </template>
 
 <script>
 import { ref, computed } from 'vue'
-import { createOrder } from '../../api/order'
+import { onLoad } from '@dcloudio/uni-app'
+import { createOrder, updateOrder, deleteOrder, getCustomerDraft } from '../../api/order'
+import { getCustomerDetail } from '../../api/customer'
 import ProductSelect from '../../components/ProductSelect/ProductSelect.vue'
 import CustomerSelect from '../../components/CustomerSelect/CustomerSelect.vue'
 import PeerSelect from '../../components/PeerSelect/PeerSelect.vue'
+import GiftSelect from '../../components/GiftSelect/GiftSelect.vue'
 import FollowUpApproval from '../../components/FollowUpApproval/FollowUpApproval.vue'
 import CommissionEstimate from '../../components/CommissionEstimate/CommissionEstimate.vue'
 import { useUserStore } from '../../store/user'
@@ -242,6 +280,7 @@ export default {
     ProductSelect,
     CustomerSelect,
     PeerSelect,
+    GiftSelect,
     FollowUpApproval,
     CommissionEstimate
   },
@@ -256,9 +295,11 @@ export default {
     const showCustomerSelect = ref(false)
     const showPeerSelect = ref(false)
     const showProductSelect = ref(false)
+    const showGiftSelect = ref(false)
     const showFollowUpApproval = ref(false)
     const showCommissionEstimate = ref(false)
     const currentProductIndex = ref(-1)
+    const currentGiftIndex = ref(-1)
     const selectedCustomer = ref(null)
     const pendingFollowUpCustomer = ref(null)
 
@@ -266,11 +307,17 @@ export default {
       customerId: null,
       customerName: '',
       customerPhone: '',
+      customerAddress: '',
+      salesmanId: null,
+      salesmanName: '',
+      peerId: null,
       companionName: '',
       companionPhone: '',
       products: [],
       gifts: [],
-      specialApproval: false
+      specialApproval: false,
+      remark: '',
+      draftOrderId: null
     })
 
     // ========== 客户选择 ==========
@@ -280,12 +327,112 @@ export default {
     const closeCustomerSelect = () => {
       showCustomerSelect.value = false
     }
-    const onCustomerSelect = (customer) => {
+    const onCustomerSelect = async (customer) => {
       selectedCustomer.value = customer
       form.value.customerId = customer.id
       form.value.customerName = customer.customer_name || customer.name
       form.value.customerPhone = customer.phone
+      form.value.customerAddress = customer.address || ''
+
+      // 查询客户历史草稿订单
+      try {
+        const res = await getCustomerDraft(customer.id)
+        if (res.data) {
+          uni.showModal({
+            title: '发现历史记录',
+            content: `该客户有未完成的订单（${res.data.items?.length || 0}件商品），是否加载？`,
+            confirmText: '加载',
+            cancelText: '不加载',
+            success: (modalRes) => {
+              if (modalRes.confirm) {
+                loadDraftOrder(res.data)
+              }
+            }
+          })
+        }
+      } catch (e) {
+        // 无草稿或查询失败，忽略
+      }
     }
+
+    // 加载草稿订单数据
+    const loadDraftOrder = (draft) => {
+      const order = draft.order || {}
+      form.value.draftOrderId = order.id || draft.id
+      // 恢复业务员信息（如果草稿有）
+      if (order.salesman_id) {
+        form.value.salesmanId = order.salesman_id
+      }
+      // 从 salesman 对象或 salesman_name 字段读取业务员名称
+      if (order.salesman?.real_name) {
+        form.value.salesmanName = order.salesman.real_name
+      } else if (order.salesman_name) {
+        form.value.salesmanName = order.salesman_name
+      }
+      // 恢复备注
+      form.value.remark = order.remark || ''
+      // 恢复同行人信息
+      if (order.companion_name) {
+        form.value.companionName = order.companion_name
+        form.value.companionPhone = order.companion_phone || ''
+      }
+      // 恢复商品（优先使用 order.items，否则使用 draft.items）
+      const items = order.items || draft.items || []
+      form.value.products = items.map(item => ({
+        skuId: item.sku_id,
+        name: item.product_name,
+        sku: item.sku_name,
+        quantity: item.quantity,
+        listPrice: item.list_price,
+        salePrice: item.sale_price,
+        costPrice: item.unit_cost,
+        minPrice: item.min_price || 0,
+      }))
+      // 恢复赠品（优先使用 order.gifts，否则使用 draft.gifts）
+      const gifts = order.gifts || draft.gifts || []
+      form.value.gifts = gifts.map(g => ({
+        giftId: g.gift_id,
+        name: g.gift_name,
+        costPrice: g.cost_price,
+        quantity: g.quantity,
+      }))
+    }
+
+    // 从客户详情页跳转时自动加载客户信息和草稿
+    const loadCustomerInfo = async (customerId, loadDraft = false) => {
+      try {
+        const res = await getCustomerDetail(customerId)
+        const customer = res.data
+        if (customer) {
+          selectedCustomer.value = customer
+          form.value.customerId = customer.id
+          form.value.customerName = customer.customer_name || customer.name
+          form.value.customerPhone = customer.phone
+          form.value.customerAddress = customer.address || ''
+        }
+      } catch (e) {
+        console.error('加载客户信息失败:', e)
+      }
+
+      if (loadDraft) {
+        try {
+          const res = await getCustomerDraft(customerId)
+          if (res.data) {
+            loadDraftOrder(res.data)
+          }
+        } catch (e) {
+          console.error('加载草稿失败:', e)
+        }
+      }
+    }
+
+    // 页面加载时处理跳转参数
+    onLoad((options) => {
+      if (options.customer_id) {
+        const loadDraft = options.load_draft === '1'
+        loadCustomerInfo(options.customer_id, loadDraft)
+      }
+    })
     const onApplyFollowUp = (customer) => {
       pendingFollowUpCustomer.value = customer
       showCustomerSelect.value = false
@@ -301,6 +448,7 @@ export default {
       form.value.customerId = customer.id
       form.value.customerName = customer.customer_name || customer.name
       form.value.customerPhone = customer.phone
+      form.value.customerAddress = customer.address || ''
     }
 
     const onFollowUpRejected = (data) => {
@@ -315,6 +463,7 @@ export default {
       showPeerSelect.value = false
     }
     const onPeerSelect = (peer) => {
+      form.value.peerId = peer.id
       form.value.companionName = peer.peer_name || peer.name
       form.value.companionPhone = peer.phone
     }
@@ -331,19 +480,26 @@ export default {
       const index = currentProductIndex.value
       if (index >= 0 && index < form.value.products.length) {
         form.value.products[index].skuId = product.id
-        form.value.products[index].name = product.sku_name || product.product?.product_name || ''
-        form.value.products[index].sku = product.sku_code
-        form.value.products[index].listPrice = product.product?.list_price || 0
-        form.value.products[index].minPrice = product.product?.min_price || 0
-        form.value.products[index].costPrice = product.product?.cost_price || 0
-        form.value.products[index].salePrice = product.product?.list_price || ''
+        form.value.products[index].name = product.product?.product_name || product.sku_name || ''
+        form.value.products[index].sku = product.sku_name || ''
+        form.value.products[index].skuCode = product.sku_code || ''
+        form.value.products[index].listPrice = Number(product.product?.list_price) || 0
+        form.value.products[index].minPrice = Number(product.product?.min_price) || 0
+        form.value.products[index].costPrice = Number(product.product?.reference_cost) || 0
+        form.value.products[index].salePrice = Number(product.product?.list_price) || 0
         form.value.products[index].stock = product.available_stock || 0
-        // 数量不能超过库存
-        const stock = product.available_stock || 0
-        if (stock > 0 && form.value.products[index].quantity > stock) {
-          form.value.products[index].quantity = stock
-        }
       }
+    }
+
+    // 显示完整商品名称
+    const showProductName = (name) => {
+      if (!name) return
+      uni.showModal({
+        title: '商品名称',
+        content: name,
+        showCancel: false,
+        confirmText: '关闭'
+      })
     }
 
     // 价格校验
@@ -362,7 +518,7 @@ export default {
         listPrice: 0,
         minPrice: 0,
         costPrice: 0,
-        salePrice: '',
+        salePrice: 0,
         stock: 0
       })
       openProductSelect(form.value.products.length - 1)
@@ -374,13 +530,8 @@ export default {
 
     const changeQty = (index, delta) => {
       const product = form.value.products[index]
-      const maxStock = product.stock || 0
       const qty = (product.quantity || 0) + delta
       if (qty < 1) return
-      if (maxStock > 0 && qty > maxStock) {
-        uni.showToast({ title: '不能超过库存数量', icon: 'none' })
-        return
-      }
       product.quantity = qty
     }
 
@@ -393,15 +544,52 @@ export default {
 
     // ========== 礼品 ==========
     const addGift = () => {
-      form.value.gifts.push({ name: '', quantity: 1 })
+      form.value.gifts.push({ giftId: null, name: '', costPrice: 0, stockQuantity: 0, quantity: 1 })
     }
     const removeGift = (index) => {
       form.value.gifts.splice(index, 1)
     }
     const changeGiftQty = (index, delta) => {
-      const qty = (form.value.gifts[index].quantity || 0) + delta
-      if (qty >= 0) form.value.gifts[index].quantity = qty
+      const gift = form.value.gifts[index]
+      const maxStock = gift.stockQuantity || 0
+      const qty = (gift.quantity || 0) + delta
+      if (qty < 1) return
+      if (maxStock > 0 && qty > maxStock) {
+        uni.showToast({ title: '不能超过库存数量', icon: 'none' })
+        return
+      }
+      gift.quantity = qty
     }
+
+    // ========== 礼品选择 ==========
+    const openGiftSelect = (index) => {
+      currentGiftIndex.value = index
+      showGiftSelect.value = true
+    }
+    const closeGiftSelect = () => {
+      showGiftSelect.value = false
+    }
+    const onGiftSelect = (gift) => {
+      const index = currentGiftIndex.value
+      if (index >= 0 && index < form.value.gifts.length) {
+        form.value.gifts[index].giftId = gift.id
+        form.value.gifts[index].name = gift.gift_name
+        form.value.gifts[index].costPrice = gift.cost_price
+        form.value.gifts[index].stockQuantity = gift.stock_quantity || 0
+        // 如果当前数量超过库存，自动调整为库存数量
+        if (form.value.gifts[index].quantity > (gift.stock_quantity || 0)) {
+          form.value.gifts[index].quantity = Math.max(1, gift.stock_quantity || 1)
+        }
+      }
+      closeGiftSelect()
+    }
+
+    // 已选礼品ID列表
+    const selectedGiftIds = computed(() => {
+      return form.value.gifts
+        .filter(g => g.giftId)
+        .map(g => g.giftId)
+    })
 
     // ========== 金额计算 ==========
     const listTotal = computed(() => {
@@ -516,31 +704,48 @@ export default {
           salesman_id: userStore.userInfo?.id || 1,
           customer_name: form.value.customerName || '',
           customer_phone: form.value.customerPhone || '',
-          customer_address: '',
-          is_peer_order: form.value.companionName ? 1 : 0,
+          customer_address: form.value.customerAddress || '',
+          is_peer_order: form.value.peerId ? 1 : 0,
+          peer_id: form.value.peerId || null,
           is_special_approved: form.value.specialApproval ? 1 : 0,
           is_draft: 1, // 草稿
-          remark: form.value.companionName ? `陪同人: ${form.value.companionName} ${form.value.companionPhone || ''}` : '',
+          remark: form.value.remark || '',
           items: form.value.products.map(p => ({
             sku_id: p.skuId || 0,
             product_name: p.name,
             sku_name: p.sku || p.name,
+            sku_code: p.skuCode || '',
             quantity: Number(p.quantity) || 1,
             list_price: Number(p.listPrice) || 0,
             sale_price: Number(p.salePrice) || 0,
+            cost_price: Number(p.costPrice) || 0,
           })),
           gifts: form.value.gifts.length > 0 ? form.value.gifts.map(g => ({
-            gift_id: 0,
+            gift_id: g.giftId || 0,
             gift_name: g.name,
-            cost_price: 0,
+            cost_price: Number(g.costPrice) || 0,
             quantity: Number(g.quantity) || 1,
           })) : [],
         }
 
-        await createOrder(orderData)
+        let result
+        if (form.value.draftOrderId) {
+          // 更新现有草稿
+          result = await updateOrder(form.value.draftOrderId, orderData)
+        } else {
+          // 创建新草稿
+          result = await createOrder(orderData)
+        }
+
+        // 保存返回的订单ID
+        if (result.data?.id) {
+          form.value.draftOrderId = result.data.id
+        }
+
         uni.showToast({ title: '保存成功', icon: 'success' })
       } catch (e) {
         console.error('保存订单失败:', e)
+        uni.showToast({ title: '保存失败', icon: 'none' })
       } finally {
         saving.value = false
       }
@@ -558,28 +763,41 @@ export default {
           salesman_id: userStore.userInfo?.id || 1,
           customer_name: form.value.customerName,
           customer_phone: form.value.customerPhone,
-          customer_address: '',
-          is_peer_order: form.value.companionName ? 1 : 0,
+          customer_address: form.value.customerAddress || '',
+          is_peer_order: form.value.peerId ? 1 : 0,
+          peer_id: form.value.peerId || null,
           is_special_approved: form.value.specialApproval ? 1 : 0,
           is_draft: 0, // 正式订单
-          remark: form.value.companionName ? `陪同人: ${form.value.companionName} ${form.value.companionPhone || ''}` : '',
+          remark: form.value.remark || '',
           items: form.value.products.map(p => ({
             sku_id: p.skuId || 0,
             product_name: p.name,
             sku_name: p.sku || p.name,
+            sku_code: p.skuCode || '',
             quantity: Number(p.quantity) || 1,
             list_price: Number(p.listPrice) || 0,
             sale_price: Number(p.salePrice) || 0,
+            cost_price: Number(p.costPrice) || 0,
           })),
           gifts: form.value.gifts.length > 0 ? form.value.gifts.map(g => ({
-            gift_id: 0,
+            gift_id: g.giftId || 0,
             gift_name: g.name,
-            cost_price: 0,
+            cost_price: Number(g.costPrice) || 0,
             quantity: Number(g.quantity) || 1,
           })) : [],
         }
 
         await createOrder(orderData)
+
+        // 如果是从草稿提交的，删除原草稿订单
+        if (form.value.draftOrderId) {
+          try {
+            await deleteOrder(form.value.draftOrderId)
+          } catch (e) {
+            console.error('删除草稿订单失败:', e)
+          }
+        }
+
         uni.showToast({ title: '提交成功', icon: 'success' })
         setTimeout(() => uni.navigateBack(), 1500)
       } catch (e) {
@@ -600,6 +818,7 @@ export default {
       showCustomerSelect,
       showPeerSelect,
       showProductSelect,
+      showGiftSelect,
       showFollowUpApproval,
       showCommissionEstimate,
       categoryCount,
@@ -629,8 +848,13 @@ export default {
       addGift,
       removeGift,
       changeGiftQty,
+      openGiftSelect,
+      closeGiftSelect,
+      onGiftSelect,
+      selectedGiftIds,
       openCommissionEstimate,
       closeCommissionEstimate,
+      showProductName,
       handleSave,
       handleSubmit
     }
@@ -672,7 +896,8 @@ export default {
 }
 
 .select-customer-row,
-.select-product-row {
+.select-product-row,
+.select-gift-row {
   display: flex;
   align-items: center;
   gap: 16rpx;
@@ -688,16 +913,118 @@ export default {
   }
 }
 
-.customer-info {
-  padding: 16rpx;
-  background: #f7f7f7;
-  border-radius: 12rpx;
-  margin-top: 16rpx;
+.cost-price {
+  font-size: 28rpx;
+  color: #ff4d4f;
+  font-weight: 500;
 }
 
-.customer-salesman {
+.stock-info {
+  font-size: 28rpx;
+  color: #52c41a;
+  font-weight: 500;
+}
+
+.stock-warning {
+  font-size: 24rpx;
+  color: #ff4d4f;
+  margin-top: 8rpx;
+  display: block;
+}
+
+/* 客户信息卡片 */
+.customer-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20rpx;
+}
+
+.customer-select-btn {
+  padding: 8rpx 24rpx;
+  background: #1890ff;
+  border-radius: 8rpx;
+  &:active { opacity: 0.8; }
+}
+
+.customer-select-btn-text {
+  font-size: 24rpx;
+  color: #fff;
+}
+
+.customer-detail {
+  background: #f7f9fc;
+  border-radius: 12rpx;
+  padding: 20rpx;
+}
+
+.customer-main {
+  display: flex;
+  align-items: baseline;
+  gap: 16rpx;
+  margin-bottom: 12rpx;
+}
+
+.customer-name {
+  font-size: 32rpx;
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+.customer-phone {
   font-size: 26rpx;
   color: #666;
+}
+
+.customer-address-row,
+.customer-salesman-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 12rpx;
+  margin-top: 8rpx;
+}
+
+.customer-address-label,
+.customer-salesman-label {
+  font-size: 24rpx;
+  color: #999;
+  flex-shrink: 0;
+  width: 80rpx;
+}
+
+.customer-address-value {
+  font-size: 24rpx;
+  color: #666;
+  line-height: 1.5;
+}
+
+.customer-salesman-value {
+  font-size: 24rpx;
+  color: #1890ff;
+  font-weight: 500;
+}
+
+.customer-empty {
+  padding: 40rpx 24rpx;
+  text-align: center;
+  background: #f7f9fc;
+  border-radius: 12rpx;
+  border: 2rpx dashed #ddd;
+  &:active { background: #f0f2f5; }
+}
+
+.customer-empty-text {
+  font-size: 28rpx;
+  color: #1890ff;
+  font-weight: 500;
+  display: block;
+}
+
+.customer-empty-hint {
+  font-size: 22rpx;
+  color: #999;
+  margin-top: 8rpx;
+  display: block;
 }
 
 .form-item {
@@ -736,6 +1063,18 @@ export default {
   }
 }
 
+.textarea-field {
+  width: 100%;
+  height: 120rpx;
+  background-color: #f5f5f5;
+  border: 2rpx solid #eeeeee;
+  border-radius: 12rpx;
+  padding: 16rpx 24rpx;
+  font-size: 28rpx;
+  color: #333333;
+  box-sizing: border-box;
+}
+
 .price-hint {
   font-size: 24rpx;
   color: #999;
@@ -750,68 +1089,174 @@ export default {
   display: block;
 }
 
-/* 商品卡片 */
+/* 商品卡片 - 紧凑布局 */
 .product-card {
-  background-color: #fafafa;
-  border-radius: 12rpx;
-  padding: 20rpx;
-  margin-bottom: 20rpx;
+  background-color: #fff;
+  border-radius: 16rpx;
+  padding: 24rpx;
+  margin-bottom: 16rpx;
+  box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.06);
 }
 
-.product-header {
+.pc-row {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  margin-bottom: 16rpx;
+
+  &--header {
+    justify-content: space-between;
+    margin-bottom: 12rpx;
+  }
+
+  &--meta {
+    justify-content: space-between;
+    margin-bottom: 16rpx;
+  }
+
+  &--price {
+    gap: 16rpx;
+    flex-wrap: wrap;
+  }
 }
 
-.product-index {
-  font-size: 26rpx;
+.pc-index {
+  width: 40rpx;
+  height: 40rpx;
+  line-height: 40rpx;
+  text-align: center;
+  background: #1890ff;
+  color: #fff;
+  font-size: 22rpx;
+  font-weight: 600;
+  border-radius: 8rpx;
+  flex-shrink: 0;
+
+  &--gift {
+    background: #faad14;
+  }
+}
+
+.pc-name {
+  flex: 1;
+  min-width: 0;
+  font-size: 28rpx;
   font-weight: 500;
-  color: #333333;
+  color: #1a1a1a;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin: 0 16rpx;
+  padding: 4rpx 0;
 }
 
-.product-delete {
+.pc-delete {
   font-size: 24rpx;
   color: #ff4d4f;
   padding: 4rpx 16rpx;
+  flex-shrink: 0;
   &:active { opacity: 0.6; }
 }
 
-/* 数量控制 */
-.quantity-control {
-  display: flex;
-  align-items: center;
-  height: 80rpx;
-  background-color: #f5f5f5;
-  border: 2rpx solid #eeeeee;
-  border-radius: 12rpx;
-  overflow: hidden;
+.pc-sku {
+  font-size: 24rpx;
+  color: #999;
+  background: #f5f5f5;
+  padding: 4rpx 16rpx;
+  border-radius: 6rpx;
 }
 
-.qty-btn {
-  width: 80rpx;
-  height: 80rpx;
+.pc-stock {
+  font-size: 24rpx;
+  color: #52c41a;
+  font-weight: 500;
+
+  &--empty {
+    color: #ff4d4f;
+  }
+}
+
+.pc-label {
+  font-size: 22rpx;
+  color: #999;
+  display: block;
+  margin-bottom: 8rpx;
+}
+
+.pc-qty {
+  flex-shrink: 0;
+}
+
+.pc-qty-control {
+  display: flex;
+  align-items: center;
+  height: 64rpx;
+  background-color: #f7f7f7;
+  border-radius: 10rpx;
+  overflow: hidden;
+  border: 2rpx solid #eee;
+}
+
+.pc-qty-btn {
+  width: 64rpx;
+  height: 64rpx;
   display: flex;
   align-items: center;
   justify-content: center;
-  background-color: #eeeeee;
-  &:active { background-color: #dddddd; }
+  background-color: #eee;
+  &:active { background-color: #ddd; }
 }
 
-.qty-btn-text {
-  font-size: 32rpx;
-  color: #333333;
+.pc-qty-btn-text {
+  font-size: 28rpx;
+  color: #333;
   line-height: 1;
 }
 
-.qty-input {
-  flex: 1;
-  height: 80rpx;
+.pc-qty-input {
+  width: 80rpx;
+  height: 64rpx;
   text-align: center;
   font-size: 28rpx;
-  color: #333333;
+  color: #333;
   background-color: transparent;
+}
+
+.pc-price-item {
+  flex: 1;
+  min-width: 0;
+}
+
+.pc-price-value {
+  font-size: 26rpx;
+  color: #999;
+  font-weight: 400;
+
+  &--list {
+    color: #666;
+  }
+}
+
+.pc-sale-input {
+  width: 100%;
+  height: 64rpx;
+  background-color: #fff8f0;
+  border: 2rpx solid #ffd591;
+  border-radius: 10rpx;
+  padding: 0 16rpx;
+  font-size: 28rpx;
+  color: #e8453c;
+  font-weight: 600;
+
+  &--error {
+    border-color: #ff4d4f;
+    background-color: #fff2f0;
+  }
+}
+
+.pc-error {
+  font-size: 22rpx;
+  color: #ff4d4f;
+  margin-top: 8rpx;
+  display: block;
 }
 
 /* 礼品 */
@@ -966,9 +1411,12 @@ export default {
 .submit-btn {
   flex: 1;
   height: 88rpx;
-  line-height: 88rpx;
   font-size: 30rpx;
   border-radius: 12rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
   &.disabled { opacity: 0.6; }
 }
 

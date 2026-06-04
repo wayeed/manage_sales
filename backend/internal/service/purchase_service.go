@@ -28,8 +28,31 @@ type CreatePurchaseItemRequest struct {
 	SKUID int64 `json:"sku_id" binding:"required" example:1`
 	ProductName string `json:"product_name" example:"真皮沙发"`
 	SKUName string `json:"sku_name" example:"真皮沙发-棕色-三座"`
-	PurchasePrice float64 `json:"purchase_price" binding:"required" example:5000.00`
+	PurchasePrice float64 `json:"purchase_price" example:5000.00`
 	Quantity int `json:"quantity" binding:"required,min=1" example:10`
+}
+
+// UpdatePurchaseOrderRequest 更新采购订单请求
+type UpdatePurchaseOrderRequest struct {
+	SupplierID   int64                      `json:"supplier_id" example:"1"`
+	SupplierName string                     `json:"supplier_name" example:"某某供应商"`
+	Remark       string                     `json:"remark" example:"紧急采购"`
+	Items        []UpdatePurchaseItemRequest `json:"items" binding:"required,min=1" example:[]`
+}
+
+// UpdatePurchaseItemRequest 更新采购明细请求
+type UpdatePurchaseItemRequest struct {
+	ID            *int64  `json:"id" example:"1"`
+	SKUID         int64   `json:"sku_id" binding:"required" example:"1"`
+	ProductName   string  `json:"product_name" example:"真皮沙发"`
+	SKUName       string  `json:"sku_name" example:"真皮沙发-棕色-三座"`
+	PurchasePrice float64 `json:"purchase_price" binding:"required" example:"5000.00"`
+	Quantity      int     `json:"quantity" binding:"required,min=1" example:"10"`
+}
+
+// AppendItemsRequest 向已有采购单追加商品请求
+type AppendItemsRequest struct {
+	Items []CreatePurchaseItemRequest `json:"items" binding:"required,min=1" example:[]`
 }
 
 // ListPurchaseOrderRequest 采购订单列表查询请求
@@ -155,7 +178,7 @@ func (s *PurchaseService) ApproveOrder(id int64, auditedBy int64) error {
 }
 
 // ConfirmReceipt 确认入库（status 1->2）
-func (s *PurchaseService) ConfirmReceipt(id int64, warehouseID int64, createdBy int64) error {
+func (s *PurchaseService) ConfirmReceipt(id int64, warehouseID int64, remark string, createdBy int64) error {
 	order, err := s.purchaseRepo.FindByID(id)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -197,9 +220,31 @@ func (s *PurchaseService) ConfirmReceipt(id int64, warehouseID int64, createdBy 
 			}
 		}
 
-		// 更新采购订单状态
-		if err := tx.Model(order).Update("status", 2).Error; err != nil {
+		// 更新采购订单状态和入库备注
+		updates := map[string]interface{}{"status": 2}
+		if remark != "" {
+			updates["receipt_remark"] = remark
+		}
+		if err := tx.Model(order).Updates(updates).Error; err != nil {
 			return err
+		}
+
+		// 入库完成后，自动分配库存到缺货排队订单
+		for _, item := range items {
+			if item.SKUID == nil {
+				continue
+			}
+			// 查询刚创建的批次
+			var batch models.InventoryBatch
+			batchNo := fmt.Sprintf("PO%dSKU%d", order.ID, *item.SKUID)
+			if err := tx.Where("batch_no = ?", batchNo).First(&batch).Error; err != nil {
+				continue
+			}
+			// 自动分配到排队订单
+			if err := s.inventoryService.AllocateStockToQueue(tx, warehouseID, *item.SKUID, batch.ID, batch.PurchasePrice, batch.RemainingQuantity, order.StoreID); err != nil {
+				// 分配失败不影响入库，仅记录日志
+				fmt.Printf("[WARN] 自动分配缺货订单失败 sku_id=%d: %v\n", *item.SKUID, err)
+			}
 		}
 
 		// 更新供应商统计
@@ -309,3 +354,209 @@ func (s *PurchaseService) GetDetail(id int64) (*models.PurchaseOrder, error) {
 	}
 	return &order, nil
 }
+
+// UpdateOrder 更新采购订单（仅 status=0 或 status=1 允许修改）
+func (s *PurchaseService) UpdateOrder(id int64, req *UpdatePurchaseOrderRequest) error {
+	order, err := s.purchaseRepo.FindByID(id)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return &AppError{Code: apperrors.ErrOrderNotFound, Message: "采购订单不存在"}
+		}
+		return &AppError{Code: apperrors.InternalError, Message: "系统错误"}
+	}
+
+	if order.Status != 0 && order.Status != 1 {
+		return &AppError{Code: apperrors.ErrInvalidOrderStatus, Message: "当前状态不允许修改"}
+	}
+
+	// 如果没传 supplier_name，根据 supplier_id 查询
+	if req.SupplierName == "" && req.SupplierID > 0 {
+		var supplier models.Supplier
+		if err := s.db.First(&supplier, req.SupplierID).Error; err == nil {
+			req.SupplierName = supplier.SupplierName
+		}
+	}
+
+	// 计算总金额和总数量
+	var totalAmount decimal.Decimal
+	totalQuantity := 0
+	for _, item := range req.Items {
+		subtotal := decimal.NewFromFloat(item.PurchasePrice).Mul(decimal.NewFromInt(int64(item.Quantity)))
+		totalAmount = totalAmount.Add(subtotal)
+		totalQuantity += item.Quantity
+	}
+
+	err = s.db.Transaction(func(tx *gorm.DB) error {
+		// 更新主表
+		if err := tx.Model(order).Updates(map[string]interface{}{
+			"supplier_id":    req.SupplierID,
+			"supplier_name":  req.SupplierName,
+			"total_amount":   totalAmount,
+			"total_quantity": totalQuantity,
+			"remark":         req.Remark,
+		}).Error; err != nil {
+			return err
+		}
+
+		// 收集保留的明细ID
+		keptItemIDs := make(map[int64]bool)
+		var newItems []models.PurchaseItem
+
+		for _, item := range req.Items {
+			subtotal := decimal.NewFromFloat(item.PurchasePrice).Mul(decimal.NewFromInt(int64(item.Quantity)))
+			if item.ID != nil && *item.ID > 0 {
+				keptItemIDs[*item.ID] = true
+				if err := tx.Model(&models.PurchaseItem{}).Where("id = ? AND purchase_order_id = ?", *item.ID, id).Updates(map[string]interface{}{
+					"sku_id":         item.SKUID,
+					"product_name":   item.ProductName,
+					"sku_name":       item.SKUName,
+					"purchase_price": decimal.NewFromFloat(item.PurchasePrice),
+					"quantity":       item.Quantity,
+					"subtotal":       subtotal,
+				}).Error; err != nil {
+					return err
+				}
+			} else {
+				newItems = append(newItems, models.PurchaseItem{
+					PurchaseOrderID: id,
+					SKUID:           &item.SKUID,
+					ProductName:     item.ProductName,
+					SKUName:         item.SKUName,
+					PurchasePrice:   decimal.NewFromFloat(item.PurchasePrice),
+					Quantity:        item.Quantity,
+					Subtotal:        subtotal,
+				})
+			}
+		}
+
+		// 批量创建新明细
+		if len(newItems) > 0 {
+			if err := tx.Create(&newItems).Error; err != nil {
+				return err
+			}
+		}
+
+		// 删除不在列表中的旧明细
+		if len(keptItemIDs) > 0 {
+			keptIDs := make([]int64, 0, len(keptItemIDs))
+			for id := range keptItemIDs {
+				keptIDs = append(keptIDs, id)
+			}
+			if err := tx.Model(&models.PurchaseItem{}).Where("purchase_order_id = ? AND id NOT IN ?", id, keptIDs).Delete(&models.PurchaseItem{}).Error; err != nil {
+				return err
+			}
+		} else {
+			if err := tx.Model(&models.PurchaseItem{}).Where("purchase_order_id = ?", id).Delete(&models.PurchaseItem{}).Error; err != nil {
+				return err
+			}
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return &AppError{Code: apperrors.InternalError, Message: "更新采购订单失败"}
+	}
+	return nil
+}
+
+// ListMergeableOrders 查询可合并的采购单（status=0 或 status=1，未入库）
+func (s *PurchaseService) ListMergeableOrders(storeID int64) ([]models.PurchaseOrder, error) {
+	var orders []models.PurchaseOrder
+	db := s.db.Model(&models.PurchaseOrder{}).Where("status IN ?", []int8{0, 1})
+	if storeID > 0 {
+		db = db.Where("store_id = ?", storeID)
+	}
+	if err := db.Order("id DESC").Limit(50).Find(&orders).Error; err != nil {
+		return nil, &AppError{Code: apperrors.InternalError, Message: "查询可合并采购单失败"}
+	}
+	return orders, nil
+}
+
+// AppendItems 向已有采购单追加商品明细（仅 status=0 或 status=1）
+func (s *PurchaseService) AppendItems(id int64, req *AppendItemsRequest) error {
+	order, err := s.purchaseRepo.FindByID(id)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return &AppError{Code: apperrors.ErrOrderNotFound, Message: "采购订单不存在"}
+		}
+		return &AppError{Code: apperrors.InternalError, Message: "系统错误"}
+	}
+
+	if order.Status != 0 && order.Status != 1 {
+		return &AppError{Code: apperrors.ErrInvalidOrderStatus, Message: "当前状态不允许修改"}
+	}
+
+	// 查询已有明细，按 sku_id 建立索引
+	var existingItems []models.PurchaseItem
+	s.db.Where("purchase_order_id = ?", id).Find(&existingItems)
+	existingMap := make(map[int64]*models.PurchaseItem)
+	for i := range existingItems {
+		if existingItems[i].SKUID != nil {
+			existingMap[*existingItems[i].SKUID] = &existingItems[i]
+		}
+	}
+
+	var appendAmount decimal.Decimal
+	appendQuantity := 0
+	var newItems []models.PurchaseItem
+	type itemUpdate struct {
+		ID       int64
+		Quantity int
+		Subtotal decimal.Decimal
+	}
+	var updateItems []itemUpdate
+
+	for _, item := range req.Items {
+		subtotal := decimal.NewFromFloat(item.PurchasePrice).Mul(decimal.NewFromInt(int64(item.Quantity)))
+		appendAmount = appendAmount.Add(subtotal)
+		appendQuantity += item.Quantity
+
+		if existing, ok := existingMap[item.SKUID]; ok {
+			// 相同SKU：累加数量，保留已有单价
+			newQty := existing.Quantity + item.Quantity
+			newSubtotal := existing.PurchasePrice.Mul(decimal.NewFromInt(int64(newQty)))
+			updateItems = append(updateItems, itemUpdate{ID: existing.ID, Quantity: newQty, Subtotal: newSubtotal})
+		} else {
+			// 新SKU：新增记录
+			newItems = append(newItems, models.PurchaseItem{
+				PurchaseOrderID: id,
+				SKUID:           &item.SKUID,
+				ProductName:     item.ProductName,
+				SKUName:         item.SKUName,
+				PurchasePrice:   decimal.NewFromFloat(item.PurchasePrice),
+				Quantity:        item.Quantity,
+				Subtotal:        subtotal,
+			})
+		}
+	}
+
+	err = s.db.Transaction(func(tx *gorm.DB) error {
+		if len(newItems) > 0 {
+			if err := tx.Create(&newItems).Error; err != nil {
+				return err
+			}
+		}
+		for _, ui := range updateItems {
+			if err := tx.Model(&models.PurchaseItem{}).Where("id = ?", ui.ID).Updates(map[string]interface{}{
+				"quantity": ui.Quantity,
+				"subtotal": ui.Subtotal,
+			}).Error; err != nil {
+				return err
+			}
+		}
+		if err := tx.Model(order).Updates(map[string]interface{}{
+			"total_amount":   gorm.Expr("total_amount + ?", appendAmount),
+			"total_quantity": gorm.Expr("total_quantity + ?", appendQuantity),
+		}).Error; err != nil {
+			return err
+		}
+		return nil
+	})
+
+	if err != nil {
+		return &AppError{Code: apperrors.InternalError, Message: "追加采购商品失败"}
+	}
+	return nil
+}
+

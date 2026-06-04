@@ -111,33 +111,63 @@ const loading = ref(false)
 const configList = ref([])
 
 const percentKeys = [
-  'commission_rate_single',
-  'commission_rate_multi',
-  'commission_rate_special',
+  // 用户等级提成比例
+  'commission_rate_level1_single',
+  'commission_rate_level1_multi',
+  'commission_rate_level2_single',
+  'commission_rate_level2_multi',
+  'commission_rate_level3_single',
+  'commission_rate_level3_multi',
+  // 同行提成比例
   'commission_rate_peer_single',
   'commission_rate_peer_multi',
   'commission_rate_peer_special',
+  // 团队分润
   'fund_pool_extract_rate',
-  'team_commission_supervisor_rate',
-  'team_commission_manager_rate',
+  'team_share_rate_manager',
+  'team_share_rate_store',
   'referral_reward_rate',
+  // 固定提成
+  'fixed_commission_rate',
+  // 试用期提成
   'probation_commission_rate',
-  'cost_rate',
-  'min_discount_rate',
 ]
 
 const isPercentConfig = (key) => percentKeys.includes(key)
 
 const isRateConfig = (key) => ['cost_rate', 'min_discount_rate'].includes(key)
 
+// 格式化显示：如果是小数(<1)则乘以100显示为百分比
 const formatConfigValue = (row) => {
   if (isRateConfig(row.config_key)) {
     return `${row.config_value} 倍`
   }
   if (isPercentConfig(row.config_key)) {
-    return `${row.config_value}%`
+    const val = Number(row.config_value)
+    if (val < 1) {
+      return `${(val * 100).toFixed(1)}%`
+    }
+    return `${val}%`
   }
   return row.config_value
+}
+
+// 编辑时：将小数转为百分比数值显示
+const toEditValue = (value) => {
+  const val = Number(value)
+  if (val < 1) {
+    return Math.round(val * 10000) / 100 // 保留2位小数
+  }
+  return val
+}
+
+// 保存时：将百分比数值转为小数存储
+const toSaveValue = (value) => {
+  const val = Number(value)
+  if (val > 1) {
+    return (val / 100).toFixed(4) // 转为小数，保留4位精度
+  }
+  return val
 }
 
 const fetchConfigList = async () => {
@@ -193,8 +223,11 @@ const editFormRules = {
 const handleEdit = (row) => {
   currentConfig.value = row
   let value = row.config_value
-  if (isPercentConfig(row.config_key) || isRateConfig(row.config_key)) {
+  if (isRateConfig(row.config_key)) {
     value = Number(row.config_value)
+  } else if (isPercentConfig(row.config_key)) {
+    // 百分比配置：编辑时将小数转为百分比数值显示
+    value = toEditValue(row.config_value)
   }
   editForm.value = { value }
   editDialogVisible.value = true
@@ -206,8 +239,15 @@ const handleSubmit = async () => {
 
   submitLoading.value = true
   try {
+    let saveValue = editForm.value.value
+    if (isRateConfig(currentConfig.value.config_key)) {
+      saveValue = String(editForm.value.value)
+    } else if (isPercentConfig(currentConfig.value.config_key)) {
+      // 百分比配置：保存时将百分比数值转为小数存储
+      saveValue = toSaveValue(editForm.value.value)
+    }
     await updateConfig(currentConfig.value.config_key, {
-      config_value: String(editForm.value.value),
+      config_value: String(saveValue),
     })
     ElMessage.success('配置更新成功')
     editDialogVisible.value = false

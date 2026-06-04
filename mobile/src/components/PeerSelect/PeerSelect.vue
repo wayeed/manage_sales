@@ -39,6 +39,7 @@
         <view v-else-if="list.length === 0" class="ps-state">
           <text class="ps-state-icon">👥</text>
           <text class="ps-state-text">暂无同行信息</text>
+          <text class="ps-state-hint" @tap="showAddDialog">点击手动添加同行</text>
         </view>
         <view v-else class="ps-items">
           <view
@@ -61,17 +62,44 @@
 
       <!-- 底部操作栏 -->
       <view class="ps-footer">
+        <button class="ps-btn ps-btn--add" @tap="showAddDialog">手动添加</button>
         <button class="ps-btn" :class="{ 'ps-btn--off': !selectedId }" @tap="confirm">
           确定选择
         </button>
+      </view>
+    </view>
+
+    <!-- 手动添加弹窗 -->
+    <view v-if="addDialogVisible" class="add-dialog">
+      <view class="add-mask" @tap="addDialogVisible = false"></view>
+      <view class="add-content">
+        <view class="add-header">
+          <text class="add-title">添加同行</text>
+        </view>
+        <view class="add-body">
+          <view class="add-field">
+            <text class="add-label">姓名 *</text>
+            <input v-model="addForm.peer_name" class="add-input" placeholder="请输入同行姓名" />
+          </view>
+          <view class="add-field">
+            <text class="add-label">手机号</text>
+            <input v-model="addForm.phone" class="add-input" type="tel" placeholder="请输入手机号" />
+          </view>
+        </view>
+        <view class="add-footer">
+          <button class="add-btn add-btn--cancel" @tap="addDialogVisible = false">取消</button>
+          <button class="add-btn add-btn--confirm" :disabled="addLoading" @tap="handleAddPeer">
+            {{ addLoading ? '保存中...' : '保存' }}
+          </button>
+        </view>
       </view>
     </view>
   </view>
 </template>
 
 <script>
-import { ref, watch } from 'vue'
-import { getPeerList } from '../../api/peer'
+import { ref, reactive, watch } from 'vue'
+import { getPeerList, createPeer } from '../../api/peer'
 
 export default {
   name: 'PeerSelect',
@@ -90,6 +118,14 @@ export default {
     const selectedPeer = ref(null)
     const page = ref(1)
     const hasMore = ref(true)
+
+    // 手动添加
+    const addDialogVisible = ref(false)
+    const addLoading = ref(false)
+    const addForm = reactive({
+      peer_name: '',
+      phone: ''
+    })
 
     watch(() => props.visible, (val) => {
       if (val) {
@@ -156,16 +192,74 @@ export default {
       close()
     }
 
+    // 显示添加弹窗
+    const showAddDialog = () => {
+      addForm.peer_name = keyword.value || ''
+      addForm.phone = ''
+      addDialogVisible.value = true
+    }
+
+    // 添加同行
+    const handleAddPeer = async () => {
+      if (!addForm.peer_name.trim()) {
+        uni.showToast({ title: '请输入同行姓名', icon: 'none' })
+        return
+      }
+
+      // 去重检查
+      const exists = list.value.find(
+        item => item.peer_name === addForm.peer_name.trim()
+      )
+      if (exists) {
+        uni.showToast({ title: '该同行已存在', icon: 'none' })
+        selectedId.value = exists.id
+        selectedPeer.value = exists
+        addDialogVisible.value = false
+        return
+      }
+
+      addLoading.value = true
+      try {
+        const res = await createPeer({
+          peer_name: addForm.peer_name.trim(),
+          phone: addForm.phone.trim() || undefined
+        })
+        uni.showToast({ title: '添加成功', icon: 'success' })
+        addDialogVisible.value = false
+
+        // 刷新列表并选中新添加的同行
+        page.value = 1
+        hasMore.value = true
+        await fetchList()
+
+        // 选中新添加的同行
+        if (res.data?.id) {
+          selectedId.value = res.data.id
+          selectedPeer.value = res.data
+        }
+      } catch (e) {
+        console.error('添加同行失败:', e)
+        uni.showToast({ title: '添加失败', icon: 'none' })
+      } finally {
+        addLoading.value = false
+      }
+    }
+
     return {
       keyword,
       list,
       loading,
       selectedId,
+      addDialogVisible,
+      addLoading,
+      addForm,
       handleSearch,
       loadMore,
       selectPeer,
       close,
-      confirm
+      confirm,
+      showAddDialog,
+      handleAddPeer
     }
   }
 }
@@ -295,6 +389,12 @@ export default {
   color: #999;
 }
 
+.ps-state-hint {
+  font-size: 26rpx;
+  color: #1890ff;
+  margin-top: 16rpx;
+}
+
 .ps-spinner {
   width: 40rpx;
   height: 40rpx;
@@ -368,6 +468,7 @@ export default {
 .ps-footer {
   display: flex;
   align-items: center;
+  gap: 20rpx;
   padding: 20rpx 32rpx;
   padding-bottom: calc(20rpx + env(safe-area-inset-bottom));
   border-top: 1rpx solid #f0f0f0;
@@ -377,16 +478,117 @@ export default {
 .ps-btn {
   flex: 1;
   height: 88rpx;
-  line-height: 88rpx;
   border-radius: 16rpx;
   font-size: 30rpx;
   font-weight: 500;
   background: #1890ff;
   color: #fff;
   text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
 
   &--off {
     opacity: 0.35;
+  }
+
+  &--add {
+    flex: 0 0 180rpx;
+    background: #f5f5f5;
+    color: #666;
+  }
+}
+
+/* 手动添加弹窗 */
+.add-dialog {
+  position: fixed;
+  inset: 0;
+  z-index: 1001;
+}
+
+.add-mask {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+}
+
+.add-content {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 600rpx;
+  background: #fff;
+  border-radius: 24rpx;
+  overflow: hidden;
+}
+
+.add-header {
+  padding: 32rpx;
+  text-align: center;
+  border-bottom: 1rpx solid #f0f0f0;
+}
+
+.add-title {
+  font-size: 32rpx;
+  font-weight: 600;
+  color: #1a1a1a;
+}
+
+.add-body {
+  padding: 32rpx;
+}
+
+.add-field {
+  margin-bottom: 24rpx;
+}
+
+.add-label {
+  display: block;
+  font-size: 26rpx;
+  color: #666;
+  margin-bottom: 12rpx;
+}
+
+.add-input {
+  width: 100%;
+  height: 80rpx;
+  padding: 0 24rpx;
+  background: #f7f7f7;
+  border-radius: 12rpx;
+  font-size: 28rpx;
+  color: #333;
+  box-sizing: border-box;
+}
+
+.add-footer {
+  display: flex;
+  border-top: 1rpx solid #f0f0f0;
+}
+
+.add-btn {
+  flex: 1;
+  height: 96rpx;
+  line-height: 96rpx;
+  text-align: center;
+  font-size: 30rpx;
+  background: none;
+  border: none;
+  border-radius: 0;
+
+  &--cancel {
+    color: #666;
+    border-right: 1rpx solid #f0f0f0;
+  }
+
+  &--confirm {
+    color: #1890ff;
+    font-weight: 500;
+  }
+
+  &[disabled] {
+    color: #bbb;
   }
 }
 </style>

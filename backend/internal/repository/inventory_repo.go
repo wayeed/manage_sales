@@ -116,10 +116,14 @@ func (r *InventoryRepository) UpdateGiftBatch(batch *models.GiftInventoryBatch) 
 }
 
 // GetStockList 获取仓库库存列表（带分页和关键字搜索）
-func (r *InventoryRepository) GetStockList(warehouseID int64, keyword string, page, pageSize int) ([]models.WarehouseStock, int64, error) {
+func (r *InventoryRepository) GetStockList(warehouseID int64, skuID int64, keyword string, page, pageSize int) ([]models.WarehouseStock, int64, error) {
 	db := r.db.Model(&models.WarehouseStock{})
 	if warehouseID > 0 {
 		db = db.Where("warehouse_id = ?", warehouseID)
+	}
+
+	if skuID > 0 {
+		db = db.Where("sku_id = ?", skuID)
 	}
 
 	if keyword != "" {

@@ -62,6 +62,16 @@
         <el-table-column prop="customer_code" label="客户编码" width="120" />
         <el-table-column prop="customer_name" label="姓名" width="100" />
         <el-table-column prop="phone" label="手机号" width="130" />
+        <el-table-column label="原手机号" width="130">
+          <template #default="{ row }">
+            {{ row.original_phone || '-' }}
+          </template>
+        </el-table-column>
+        <el-table-column label="客户来源" width="100" align="center">
+          <template #default="{ row }">
+            {{ getSourceTypeLabel(row.source_type) }}
+          </template>
+        </el-table-column>
         <el-table-column label="性别" width="70" align="center">
           <template #default="{ row }">
             {{ row.gender === 1 ? '男' : row.gender === 2 ? '女' : '-' }}
@@ -206,11 +216,27 @@
             </el-form-item>
           </el-col>
           <el-col :span="12">
+            <el-form-item label="客户来源" prop="source_type">
+              <el-select v-model="formData.source_type" placeholder="请选择客户来源" style="width: 100%">
+                <el-option label="自然进店" :value="0" />
+                <el-option label="主动邀约" :value="1" />
+                <el-option label="同行带单" :value="2" />
+              </el-select>
+            </el-form-item>
+          </el-col>
+        </el-row>
+        <el-row :gutter="16">
+          <el-col :span="12">
             <el-form-item label="状态">
               <el-radio-group v-model="formData.status">
                 <el-radio :value="1">启用</el-radio>
                 <el-radio :value="0">禁用</el-radio>
               </el-radio-group>
+            </el-form-item>
+          </el-col>
+          <el-col :span="12" v-if="isEdit && formData.original_phone">
+            <el-form-item label="原手机号">
+              <el-input v-model="formData.original_phone" disabled />
             </el-form-item>
           </el-col>
         </el-row>
@@ -361,6 +387,11 @@ const getLevelLabel = (level) => {
   return map[level] ?? level ?? '-'
 }
 
+const getSourceTypeLabel = (type) => {
+  const map = { 0: '自然进店', 1: '主动邀约', 2: '同行带单' }
+  return map[type] ?? '-'
+}
+
 const getLevelTag = (level) => {
   const map = { 0: 'info', 1: '', 2: 'warning', 3: 'success' }
   return map[level] ?? 'info'
@@ -376,11 +407,13 @@ const editingId = ref(null)
 const formData = reactive({
   customer_name: '',
   phone: '',
+  original_phone: '',
   customer_code: '',
   email: '',
   gender: 0,
   birthday: '',
   level: 0,
+  source_type: 0,
   status: 1,
   address: '',
   remark: '',
@@ -392,16 +425,19 @@ const formRules = {
     { required: true, message: '请输入手机号', trigger: 'blur' },
     { pattern: /^1[3-9]\d{9}$/, message: '请输入正确的手机号', trigger: 'blur' },
   ],
+  source_type: [{ required: true, message: '请选择客户来源', trigger: 'change' }],
 }
 
 const resetFormData = () => {
   formData.customer_name = ''
   formData.phone = ''
+  formData.original_phone = ''
   formData.customer_code = ''
   formData.email = ''
   formData.gender = 0
   formData.birthday = ''
   formData.level = 0
+  formData.source_type = 0
   formData.status = 1
   formData.address = ''
   formData.remark = ''
@@ -419,11 +455,13 @@ const handleEdit = (row) => {
   editingId.value = row.id
   formData.customer_name = row.customer_name || ''
   formData.phone = row.phone || ''
+  formData.original_phone = row.original_phone || ''
   formData.customer_code = row.customer_code || ''
   formData.email = row.email || ''
   formData.gender = row.gender ?? 0
   formData.birthday = row.birthday ? row.birthday.substring(0, 10) : ''
   formData.level = row.level ?? 0
+  formData.source_type = row.source_type ?? 0
   formData.status = row.status ?? 1
   formData.address = row.address || ''
   formData.remark = row.remark || ''
@@ -443,6 +481,7 @@ const handleSubmit = async () => {
       gender: formData.gender,
       birthday: formData.birthday || null,
       level: formData.level,
+      source_type: formData.source_type,
       status: formData.status,
       address: formData.address,
       remark: formData.remark,

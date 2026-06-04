@@ -15,10 +15,13 @@ type Payment struct {
 	PaymentDate	*time.Time	`gorm:"column:payment_date" json:"payment_date" example:"2025-01-15T00:00:00+08:00"`
 	PaymentMethod	int8	`gorm:"column:payment_method;default:0" json:"payment_method" example:"1"`
 	Status	int8	`gorm:"column:status;default:0" json:"status" example:"1"`
+	PaymentType	int8	`gorm:"column:payment_type;default:0" json:"payment_type" example:"0"` // 0=普通回款, 1=订金, 2=尾款
 	Remark	string	`gorm:"column:remark;type:varchar(500)" json:"remark" example:"备注信息"`
+	VoucherURL	string	`gorm:"column:voucher_url;type:varchar(500)" json:"voucher_url" example:"/uploads/images/2025/01/15/xxx.jpg"`
 	CreatedBy	*int64	`gorm:"column:created_by" json:"created_by" example:"1"`
 	AuditedBy	*int64	`gorm:"column:audited_by" json:"audited_by" example:"1"`
 	AuditedAt	*time.Time	`gorm:"column:audited_at" json:"audited_at" example:"2025-01-15T00:00:00+08:00"`
+	RejectReason	*string	`gorm:"column:reject_reason;type:varchar(500)" json:"reject_reason" example:"驳回原因"`
 	CreatedAt	time.Time	`json:"created_at" example:"2025-01-15T00:00:00+08:00"`
 	UpdatedAt	time.Time	`json:"updated_at" example:"2025-01-15T00:00:00+08:00"`
 

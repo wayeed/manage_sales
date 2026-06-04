@@ -29,10 +29,10 @@
           <view class="icon-chart-bar" :class="{ active: currentIndex === index }" style="height: 26rpx;"></view>
           <view class="icon-chart-bar" :class="{ active: currentIndex === index }" style="height: 36rpx;"></view>
         </view>
-        <!-- 库存图标 -->
-        <view v-else-if="item.key === 'box'" class="icon-box">
-          <view class="icon-box-body" :class="{ active: currentIndex === index }"></view>
-          <view class="icon-box-lid" :class="{ active: currentIndex === index }"></view>
+        <!-- 客户跟进图标（中间突出） -->
+        <view v-else-if="item.key === 'customer'" class="icon-customer" :class="{ active: currentIndex === index }">
+          <view class="icon-customer-head"></view>
+          <view class="icon-customer-body"></view>
         </view>
         <!-- 我的图标 -->
         <view v-else-if="item.key === 'user'" class="icon-user">
@@ -59,8 +59,8 @@ export default {
       tabList: [
         { key: 'home', text: '首页', path: '/pages/index/index' },
         { key: 'order', text: '订单', path: '/pages/orders/index' },
+        { key: 'customer', text: '客户跟进', path: '/pages/customer/follow-up' },
         { key: 'chart', text: '业绩', path: '/pages/performance/index' },
-        { key: 'box', text: '库存', path: '/pages/inventory/index' },
         { key: 'user', text: '我的', path: '/pages/profile/index' }
       ]
     }
@@ -73,7 +73,7 @@ export default {
   methods: {
     switchTab(index) {
       if (index === this.currentIndex) return
-      uni.switchTab({
+      uni.reLaunch({
         url: this.tabList[index].path
       })
     }
@@ -107,6 +107,21 @@ export default {
 
   &.active .tabbar-text {
     color: #1890ff;
+    font-weight: 600;
+    font-size: 22rpx;
+  }
+
+  // 选中指示条
+  &.active::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 48rpx;
+    height: 6rpx;
+    background: #1890ff;
+    border-radius: 0 0 4rpx 4rpx;
   }
 }
 
@@ -223,40 +238,76 @@ export default {
   }
 }
 
-/* ===== 库存图标 ===== */
-.icon-box {
+/* ===== 客户跟进图标（中间突出） ===== */
+.tabbar-item:nth-child(3) {
+  margin-top: -20rpx;
+}
+
+.tabbar-item:nth-child(3) .tabbar-icon {
+  width: 96rpx;
+  height: 96rpx;
+  background: #e8f4ff;
+  border-radius: 50%;
+  box-shadow: 0 4rpx 16rpx rgba(24, 144, 255, 0.2);
+  transition: all 0.2s ease;
+}
+
+.tabbar-item:nth-child(3).active .tabbar-icon {
+  background: #1890ff;
+  box-shadow: 0 6rpx 24rpx rgba(24, 144, 255, 0.5);
+}
+
+.tabbar-item:nth-child(3) .tabbar-text {
+  color: #999;
+  font-weight: 400;
+  transition: all 0.2s ease;
+}
+
+.tabbar-item:nth-child(3).active .tabbar-text {
+  color: #1890ff;
+  font-weight: 600;
+  font-size: 22rpx;
+}
+
+// 中间按钮不需要顶部指示条（已有圆形背景区分）
+.tabbar-item:nth-child(3).active::after {
+  display: none;
+}
+
+.icon-customer {
   position: relative;
-  width: 40rpx;
-  height: 36rpx;
+  width: 36rpx;
+  height: 40rpx;
 }
 
-.icon-box-body {
-  position: absolute;
-  bottom: 0;
-  width: 40rpx;
-  height: 28rpx;
-  border: 3rpx solid #999999;
-  border-radius: 4rpx;
-
-  &.active {
-    border-color: #1890ff;
-  }
-}
-
-.icon-box-lid {
+.icon-customer-head {
   position: absolute;
   top: 0;
   left: 50%;
   transform: translateX(-50%);
-  width: 46rpx;
-  height: 10rpx;
-  border: 3rpx solid #999999;
-  border-bottom: none;
-  border-radius: 4rpx 4rpx 0 0;
+  width: 16rpx;
+  height: 16rpx;
+  border: 3rpx solid #1890ff;
+  border-radius: 50%;
+  transition: border-color 0.2s ease;
+}
 
-  &.active {
-    border-color: #1890ff;
-  }
+.icon-customer-body {
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 30rpx;
+  height: 18rpx;
+  border: 3rpx solid #1890ff;
+  border-top: none;
+  border-radius: 0 0 16rpx 16rpx;
+  transition: border-color 0.2s ease;
+}
+
+.tabbar-item:nth-child(3).active .icon-customer-head,
+.tabbar-item:nth-child(3).active .icon-customer-body {
+  border-color: #fff;
 }
 
 /* ===== 我的图标 ===== */

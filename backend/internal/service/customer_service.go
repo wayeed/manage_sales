@@ -33,6 +33,7 @@ type CreateCustomerRequest struct {
 	Gender int8 `json:"gender" example:1`
 	Birthday string `json:"birthday" example:"1990-05-15"`
 	Level int8 `json:"level" example:1`
+	SourceType int8 `json:"source_type" example:"0"` // 0=自然进店 1=主动邀约 2=同行带单
 	Remark string `json:"remark" example:"VIP客户"`
 }
 
@@ -45,17 +46,19 @@ type UpdateCustomerRequest struct {
 	Gender *int `json:"gender" example:1`
 	Birthday string `json:"birthday" example:"1990-05-15"`
 	Level *int `json:"level" example:1`
+	SourceType int8 `json:"source_type" example:"0"` // 0=自然进店 1=主动邀约 2=同行带单
 	Remark string `json:"remark" example:"VIP客户"`
 	Status *int `json:"status" example:1`
 }
 
 // ListCustomerRequest 客户列表查询请求
 type ListCustomerRequest struct {
-	StoreID string `form:"store_id" example:"1"`
-	Keyword string `form:"keyword" example:"王五"`
-	Level string `form:"level" example:"1"`
-	Page int `form:"page" example:1`
-	PageSize int `form:"page_size" example:10`
+	StoreID    string `form:"store_id" example:"1"`
+	Keyword    string `form:"keyword" example:"王五"`
+	Level      string `form:"level" example:"1"`
+	Page       int    `form:"page" example:1`
+	PageSize   int    `form:"page_size" example:10`
+	SalesmanID int64  `form:"salesman_id" example:"1"` // 业务员ID，用于过滤自己的客户
 }
 
 // AddFollowUpRequest 添加跟进记录请求
@@ -82,6 +85,7 @@ func (s *CustomerService) Create(req *CreateCustomerRequest, createdBy int64) (*
 		Address:      req.Address,
 		Gender:       req.Gender,
 		Level:        req.Level,
+		SourceType:   req.SourceType,
 		Remark:       req.Remark,
 		Status:       1,
 		CreatedBy:    &createdBy,
@@ -109,7 +113,7 @@ type CustomerListResponse struct {
 
 // List 客户列表
 func (s *CustomerService) List(req *ListCustomerRequest) (*PageResult, error) {
-	customers, total, err := s.custRepo.ListWithFilter(req.StoreID, req.Keyword, req.Level, req.Page, req.PageSize)
+	customers, total, err := s.custRepo.ListWithFilter(req.StoreID, req.Keyword, req.Level, req.Page, req.PageSize, req.SalesmanID)
 	if err != nil {
 		return nil, &AppError{Code: apperrors.InternalError, Message: "查询客户列表失败"}
 	}
@@ -158,7 +162,11 @@ func (s *CustomerService) Update(id int64, req *UpdateCustomerRequest) error {
 	if req.CustomerName != "" {
 		customer.CustomerName = req.CustomerName
 	}
-	if req.Phone != "" {
+	// 手机号变更时记录原手机号
+	if req.Phone != "" && req.Phone != customer.Phone {
+		if customer.Phone != "" {
+			customer.OriginalPhone = customer.Phone
+		}
 		customer.Phone = req.Phone
 	}
 	if req.Email != "" {
@@ -179,6 +187,8 @@ func (s *CustomerService) Update(id int64, req *UpdateCustomerRequest) error {
 	if req.Level != nil {
 		customer.Level = int8(*req.Level)
 	}
+	// 更新客户来源
+	customer.SourceType = req.SourceType
 	if req.Remark != "" {
 		customer.Remark = req.Remark
 	}
@@ -257,6 +267,113 @@ func (s *CustomerService) UpdateOrderStats(customerID int64, totalOrders int, to
 		return &AppError{Code: apperrors.InternalError, Message: "更新客户统计失败"}
 	}
 	return nil
+}
+
+// CustomerWithDraft 客户（含草稿状态）
+type CustomerWithDraft struct {
+	models.Customer
+	SalesmanName string `json:"salesman_name"`
+	HasDraft     bool   `json:"has_draft"`
+	DraftID      int64  `json:"draft_id"`
+	DraftItems   int    `json:"draft_items"`
+}
+
+// GetCustomersWithDraftStatus 获取业务员负责的客户列表（含草稿状态）
+func (s *CustomerService) GetCustomersWithDraftStatus(salesmanID int64, storeID int64, keyword string, page, pageSize int) (*PageResult, error) {
+	if page <= 0 {
+		page = 1
+	}
+	if pageSize <= 0 {
+		pageSize = 20
+	}
+
+	// 查询业务员负责的客户
+	query := s.db.Model(&models.Customer{}).Where("salesman_id = ? AND status = 1", salesmanID)
+	if storeID > 0 {
+		query = query.Where("store_id = ?", storeID)
+	}
+	if keyword != "" {
+		query = query.Where("customer_name LIKE ? OR phone LIKE ?", "%"+keyword+"%", "%"+keyword+"%")
+	}
+
+	var total int64
+	query.Count(&total)
+
+	var customers []models.Customer
+	query.Order("id DESC").Offset((page - 1) * pageSize).Limit(pageSize).Preload("Salesman").Find(&customers)
+
+	// 批量查询草稿状态
+	customerIDs := make([]int64, len(customers))
+	for i, c := range customers {
+		customerIDs[i] = c.ID
+	}
+
+	// 查询这些客户的草稿订单（每个客户最新的草稿）
+	type DraftInfo struct {
+		CustomerID int64 `json:"customer_id"`
+		OrderID    int64 `json:"order_id"`
+		ItemCount  int   `json:"item_count"`
+	}
+	var drafts []DraftInfo
+	if len(customerIDs) > 0 {
+		// 先查询每个客户最新的草稿订单ID
+		var draftOrders []models.Order
+		s.db.Where("customer_id IN ? AND is_draft = 1", customerIDs).
+			Order("id DESC").
+			Find(&draftOrders)
+
+		// 去重，只保留每个客户最新的草稿
+		seen := make(map[int64]bool)
+		for _, order := range draftOrders {
+			cid := int64(0)
+			if order.CustomerID != nil {
+				cid = *order.CustomerID
+			}
+			if !seen[cid] {
+				seen[cid] = true
+				// 查询该订单的商品数量
+				var itemCount int64
+				s.db.Model(&models.OrderItem{}).Where("order_id = ?", order.ID).Count(&itemCount)
+				drafts = append(drafts, DraftInfo{
+					CustomerID: cid,
+					OrderID:    order.ID,
+					ItemCount:  int(itemCount),
+				})
+			}
+		}
+	}
+
+	// 构建草稿映射
+	draftMap := make(map[int64]DraftInfo)
+	for _, d := range drafts {
+		draftMap[d.CustomerID] = d
+	}
+
+	// 组装返回
+	list := make([]CustomerWithDraft, len(customers))
+	for i, c := range customers {
+		list[i] = CustomerWithDraft{
+			Customer: c,
+		}
+		if c.Salesman != nil {
+			list[i].SalesmanName = c.Salesman.RealName
+			if list[i].SalesmanName == "" {
+				list[i].SalesmanName = c.Salesman.Username
+			}
+		}
+		if draft, ok := draftMap[c.ID]; ok {
+			list[i].HasDraft = true
+			list[i].DraftID = draft.OrderID
+			list[i].DraftItems = draft.ItemCount
+		}
+	}
+
+	return &PageResult{
+		List:     list,
+		Total:    total,
+		Page:     page,
+		PageSize: pageSize,
+	}, nil
 }
 
 // generateCustomerCode 生成客户编码：C + 年月日 + 6位序号

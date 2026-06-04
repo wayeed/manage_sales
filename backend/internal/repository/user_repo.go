@@ -49,10 +49,10 @@ func (r *UserRepository) FindByEmployeeNo(employeeNo string) (*models.User, erro
 	return &user, nil
 }
 
-// FindWithRoles 根据ID查找用户（包含角色信息）
+// FindWithRoles 根据ID查找用户（包含角色和门店信息）
 func (r *UserRepository) FindWithRoles(id int64) (*models.User, error) {
 	var user models.User
-	err := r.DB.Preload("Roles").First(&user, id).Error
+	err := r.DB.Preload("Roles").Preload("Store").First(&user, id).Error
 	if err != nil {
 		return nil, err
 	}
@@ -87,7 +87,7 @@ func (r *UserRepository) ListWithFilter(storeID, role, status int, keyword strin
 	p.SetDefault()
 
 	var users []models.User
-	if err := db.Preload("Store").Preload("Roles").
+	if err := db.Preload("Store").Preload("Roles").Preload("Referrer").
 		Offset(p.GetOffset()).Limit(p.GetLimit()).
 		Order("id DESC").
 		Find(&users).Error; err != nil {

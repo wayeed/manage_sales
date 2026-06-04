@@ -18,3 +18,12 @@ jwt:
 log:
   level: debug
   file: logs/app.log
+
+cors:
+  allowed_origins:
+    - http://localhost:8080
+    - http://127.0.0.1:8080
+
+upload:
+  dir: ./uploads
+  base_url: http://localhost:8080/uploads

@@ -170,22 +170,29 @@ INSERT INTO `permissions` (`id`, `permission_code`, `permission_name`, `permissi
 -- ============================================================
 -- 5. 系统配置 - 提成比例
 -- ============================================================
-INSERT INTO `system_configs` (`id`, `config_key`, `config_value`, `config_type`, `remark`) VALUES
-(1, 'commission_rate_single',         '0.2000', 'commission', '单品提成比例(20%)'),
-(2, 'commission_rate_multi',          '0.2200', 'commission', '多品提成比例(22%)'),
-(3, 'commission_rate_special',        '0.1500', 'commission', '特批提成比例(15%)'),
-(4, 'commission_rate_peer_single',    '0.1000', 'commission', '同行单品提成比例(10%)'),
-(5, 'commission_rate_peer_multi',     '0.1200', 'commission', '同行多品提成比例(12%)'),
-(6, 'commission_rate_peer_special',   '0.0800', 'commission', '同行特批提成比例(8%)'),
-(7, 'fund_pool_extract_rate',         '0.0500', 'commission', '基金池提取比例(5%)'),
-(8, 'team_commission_supervisor_rate','0.0200', 'commission', '主管团队分润比例(2%)'),
-(9, 'team_commission_manager_rate',   '0.0300', 'commission', '店长团队分润比例(3%)'),
-(10, 'referral_reward_rate',          '0.0100', 'commission', '老带新奖励比例(1%)'),
-(11, 'default_store_id',              '1',      'system',     '默认门店ID'),
-(12, 'salary_base_date',              '25',     'salary',     '工资计算截止日(每月25日)'),
-(13, 'probation_commission_rate',     '0.8000', 'commission', '试用期提成系数(80%)'),
-(14, 'cost_rate',                     '1.2000', 'product',    '成本系数(进货价×成本系数=成本价)'),
-(15, 'min_discount_rate',             '0.9000', 'product',    '最低折扣系数(挂牌价×折扣系数=最低价)');
+INSERT INTO `system_configs` (`id`, `config_key`, `config_value`, `config_type`, `remark`, `sort`) VALUES
+(1,  'commission_rate_level1_single',  '0.0800', 'commission', '初级业务员-单品提成比例(8%)',  10),
+(2,  'commission_rate_level1_multi',   '0.1000', 'commission', '初级业务员-多品提成比例(10%)', 11),
+(3,  'commission_rate_level1_remark',  '建议底薪3000-4000', 'commission', '初级业务员-备注',         12),
+(4,  'commission_rate_level2_single',  '0.1800', 'commission', '中级业务员-单品提成比例(18%)', 20),
+(5,  'commission_rate_level2_multi',   '0.2200', 'commission', '中级业务员-多品提成比例(22%)', 21),
+(6,  'commission_rate_level2_remark',  '建议底薪1500-2500', 'commission', '中级业务员-备注',         22),
+(7,  'commission_rate_level3_single',  '0.3500', 'commission', '高级业务员-单品提成比例(35%)', 30),
+(8,  'commission_rate_level3_multi',   '0.3800', 'commission', '高级业务员-多品提成比例(38%)', 31),
+(9,  'commission_rate_level3_remark',  '建议底薪0',          'commission', '高级业务员-备注',         32),
+(10, 'commission_rate_peer_single',    '0.1000', 'commission', '同行单品提成比例(10%)',        40),
+(11, 'commission_rate_peer_multi',     '0.1200', 'commission', '同行多品提成比例(12%)',        41),
+(12, 'commission_rate_peer_special',   '0.0800', 'commission', '同行特批提成比例(8%)',         42),
+(13, 'fund_pool_extract_rate',         '0.0500', 'commission', '基金池提取比例(5%)',           50),
+(14, 'team_share_rate_manager','0.0200', 'commission', '主管团队分润比例(2%)',         51),
+(15, 'team_share_rate_store',   '0.0300', 'commission', '店长团队分润比例(3%)',         52),
+(16, 'referral_reward_rate',          '0.0100', 'commission', '老带新奖励比例(1%)',           53),
+(17, 'fixed_commission_rate',          '0.0500', 'commission', '固定提成比例(月度回款提成)',    60),
+(18, 'default_store_id',              '1',      'system',     '默认门店ID',                    0),
+(19, 'salary_base_date',              '25',     'salary',     '工资计算截止日(每月25日)',      0),
+(20, 'probation_commission_rate',     '0.8000', 'commission', '试用期提成系数(80%)',           0),
+(21, 'cost_rate',                     '1.2000', 'product',    '成本系数(进货价×成本系数=成本价)', 0),
+(22, 'min_discount_rate',             '0.9000', 'product',    '最低折扣系数(挂牌价×折扣系数=最低价)', 0);
 
 -- ============================================================
 -- 6. 默认仓库

@@ -10,7 +10,8 @@ import (
 
 // ApprovePaymentRequest 审核回款请求
 type ApprovePaymentRequest struct {
-	Approved bool `json:"approved" example:"true"`
+	Approved     bool   `json:"approved" example:"true"`
+	RejectReason string `json:"reject_reason" example:"驳回原因"`
 }
 
 // PaymentHandler 回款处理器
@@ -33,8 +34,9 @@ func (h *PaymentHandler) CreatePayment(c *gin.Context) {
 	}
 
 	createdBy := GetUserID(c)
+	roleCodes := GetRoleCodes(c)
 
-	if err := h.paymentService.CreatePayment(&req, createdBy); err != nil {
+	if err := h.paymentService.CreatePayment(&req, createdBy, roleCodes); err != nil {
 		if appErr, ok := err.(*service.AppError); ok {
 			Error(c, appErr.Code, appErr.Message)
 			return
@@ -92,7 +94,7 @@ func (h *PaymentHandler) ApprovePayment(c *gin.Context) {
 
 	approvedBy := GetUserID(c)
 
-	if err := h.paymentService.ApprovePayment(id, approvedBy, req.Approved); err != nil {
+	if err := h.paymentService.ApprovePayment(id, approvedBy, req.Approved, req.RejectReason); err != nil {
 		if appErr, ok := err.(*service.AppError); ok {
 			Error(c, appErr.Code, appErr.Message)
 			return

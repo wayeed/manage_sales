@@ -309,13 +309,13 @@ const handlePaySubmit = async () => {
 // ==================== 导出 ====================
 const handleExport = async () => {
   try {
+    // 文件下载需要设置 responseType: 'blob'
     const res = await exportSalarySlip(salaryId)
-    // 处理文件下载
-    const blob = new Blob([res], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+    const blob = new Blob([res], { type: 'text/csv;charset=utf-8' })
     const url = window.URL.createObjectURL(blob)
     const link = document.createElement('a')
     link.href = url
-    link.download = `工资条_${salaryData.value.employee?.real_name || ''}_${salaryData.value.salary_month || ''}.xlsx`
+    link.download = `工资条_${salaryData.value.employee?.real_name || ''}_${salaryData.value.salary_month || ''}.csv`
     link.click()
     window.URL.revokeObjectURL(url)
     ElMessage.success('导出成功')

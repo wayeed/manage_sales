@@ -23,6 +23,21 @@
             <el-option label="禁用" :value="0" />
           </el-select>
         </el-form-item>
+        <el-form-item label="仓库">
+          <el-select
+            v-model="searchForm.warehouse_id"
+            placeholder="全部仓库"
+            clearable
+            style="width: 160px"
+          >
+            <el-option
+              v-for="w in warehouseOptions"
+              :key="w.id"
+              :label="w.warehouse_name"
+              :value="w.id"
+            />
+          </el-select>
+        </el-form-item>
         <el-form-item>
           <el-button type="primary" icon="Search" @click="handleSearch">搜索</el-button>
           <el-button icon="Refresh" @click="handleReset">重置</el-button>
@@ -42,6 +57,7 @@
       <el-table
         v-loading="loading"
         :data="giftList"
+        :key="searchForm.warehouse_id || 'all'"
         border
         stripe
         style="width: 100%"
@@ -53,7 +69,19 @@
             <span class="price">¥{{ row.cost_price || 0 }}</span>
           </template>
         </el-table-column>
-        <el-table-column prop="stock_quantity" label="库存" width="100" align="center" />
+        <el-table-column prop="stock_quantity" label="总库存" width="100" align="center" />
+        <el-table-column v-if="searchForm.warehouse_id" label="仓库" width="140" align="center">
+          <template #default="{ row }">
+            <span>{{ row.warehouse_name || '--' }}</span>
+          </template>
+        </el-table-column>
+        <el-table-column v-if="searchForm.warehouse_id" label="仓库库存" width="100" align="center">
+          <template #default="{ row }">
+            <span :class="{ 'text-warning': (row.warehouse_stock || 0) <= 0 }">
+              {{ row.warehouse_stock || 0 }}
+            </span>
+          </template>
+        </el-table-column>
         <el-table-column label="状态" width="80" align="center">
           <template #default="{ row }">
             <el-tag :type="row.status === 1 ? 'success' : 'danger'" size="small">
@@ -62,10 +90,13 @@
           </template>
         </el-table-column>
         <el-table-column prop="created_at" label="创建时间" width="180" />
-        <el-table-column label="操作" width="180" align="center" fixed="right">
+        <el-table-column label="操作" width="220" align="center" fixed="right">
           <template #default="{ row }">
             <el-button type="primary" link size="small" @click="handleEdit(row)">
               编辑
+            </el-button>
+            <el-button type="success" link size="small" @click="handleStock(row)">
+              入库
             </el-button>
             <el-button type="danger" link size="small" @click="handleDelete(row)">
               删除
@@ -132,6 +163,67 @@
         </el-button>
       </template>
     </el-dialog>
+
+    <!-- 入库弹窗 -->
+    <el-dialog
+      v-model="stockDialogVisible"
+      title="礼品入库"
+      width="420px"
+      destroy-on-close
+    >
+      <el-form
+        ref="stockFormRef"
+        :model="stockFormData"
+        :rules="stockFormRules"
+        label-width="80px"
+      >
+        <el-form-item label="礼品名称">
+          <span>{{ currentGift?.gift_name }}</span>
+        </el-form-item>
+        <el-form-item label="当前库存">
+          <span>{{ currentGift?.stock_quantity || 0 }}</span>
+        </el-form-item>
+        <el-form-item label="入库仓库" prop="warehouse_id">
+          <el-select
+            v-model="stockFormData.warehouse_id"
+            placeholder="请选择仓库"
+            style="width: 100%"
+          >
+            <el-option
+              v-for="warehouse in warehouseList"
+              :key="warehouse.id"
+              :label="warehouse.warehouse_name"
+              :value="warehouse.id"
+            />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="入库数量" prop="quantity">
+          <el-input-number
+            v-model="stockFormData.quantity"
+            :min="1"
+            :precision="0"
+            controls-position="right"
+            style="width: 100%"
+          />
+        </el-form-item>
+        <el-form-item label="采购单价" prop="purchase_price">
+          <el-input-number
+            v-model="stockFormData.purchase_price"
+            :min="0"
+            :precision="2"
+            controls-position="right"
+            style="width: 100%"
+            placeholder="选填"
+          />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="stockDialogVisible = false">取消</el-button>
+        <el-button type="primary" :loading="stockSubmitLoading" @click="handleStockSubmit">
+          确定入库
+        </el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -143,15 +235,19 @@ import {
   createGift,
   updateGift,
   deleteGift,
+  addGiftStock,
 } from '@/api/gift'
+import { getWarehouseList } from '@/api/warehouse'
 
 // ==================== 搜索与列表 ====================
 const loading = ref(false)
 const giftList = ref([])
+const warehouseOptions = ref([])
 
 const searchForm = reactive({
   keyword: '',
   status: '',
+  warehouse_id: '',
 })
 
 const pagination = reactive({
@@ -169,6 +265,7 @@ const fetchList = async () => {
     }
     if (searchForm.keyword) params.keyword = searchForm.keyword
     if (searchForm.status !== '' && searchForm.status !== null) params.status = searchForm.status
+    if (searchForm.warehouse_id) params.warehouse_id = searchForm.warehouse_id
 
     const res = await getGiftList(params)
     giftList.value = res.data?.list || res.data || []
@@ -188,6 +285,7 @@ const handleSearch = () => {
 const handleReset = () => {
   searchForm.keyword = ''
   searchForm.status = ''
+  searchForm.warehouse_id = ''
   pagination.page = 1
   fetchList()
 }
@@ -284,8 +382,89 @@ const handleDelete = (row) => {
   }).catch(() => {})
 }
 
+// ==================== 入库 ====================
+const stockDialogVisible = ref(false)
+const stockSubmitLoading = ref(false)
+const stockFormRef = ref(null)
+const currentGift = ref(null)
+const warehouseList = ref([])
+
+const stockFormData = reactive({
+  warehouse_id: null,
+  quantity: 1,
+  purchase_price: 0,
+})
+
+const stockFormRules = {
+  warehouse_id: [
+    { required: true, message: '请选择入库仓库', trigger: 'change' },
+  ],
+  quantity: [
+    { required: true, message: '请输入入库数量', trigger: 'blur' },
+    { type: 'number', min: 1, message: '入库数量必须大于0', trigger: 'blur' },
+  ],
+}
+
+const resetStockForm = () => {
+  stockFormData.warehouse_id = null
+  stockFormData.quantity = 1
+  stockFormData.purchase_price = 0
+}
+
+// 加载仓库列表
+const fetchWarehouseList = async () => {
+  try {
+    const res = await getWarehouseList({ page: 1, page_size: 100 })
+    warehouseList.value = res.data?.list || res.data || []
+    // 如果只有一个仓库，默认选中
+    if (warehouseList.value.length === 1) {
+      stockFormData.warehouse_id = warehouseList.value[0].id
+    }
+  } catch (error) {
+    console.error('获取仓库列表失败:', error)
+  }
+}
+
+const handleStock = async (row) => {
+  currentGift.value = row
+  await fetchWarehouseList()
+  resetStockForm()
+  stockDialogVisible.value = true
+}
+
+const handleStockSubmit = async () => {
+  const valid = await stockFormRef.value?.validate().catch(() => false)
+  if (!valid) return
+
+  stockSubmitLoading.value = true
+  try {
+    await addGiftStock(currentGift.value.id, {
+      warehouse_id: stockFormData.warehouse_id,
+      quantity: stockFormData.quantity,
+      purchase_price: stockFormData.purchase_price,
+    })
+    ElMessage.success('入库成功')
+    stockDialogVisible.value = false
+    fetchList()
+  } catch (error) {
+    console.error('礼品入库失败:', error)
+  } finally {
+    stockSubmitLoading.value = false
+  }
+}
+
 // ==================== 初始化 ====================
+const fetchWarehouseOptions = async () => {
+  try {
+    const res = await getWarehouseList({ page: 1, page_size: 100 })
+    warehouseOptions.value = res.data?.list || res.data || []
+  } catch (error) {
+    console.error('获取仓库列表失败:', error)
+  }
+}
+
 onMounted(() => {
+  fetchWarehouseOptions()
   fetchList()
 })
 </script>
@@ -318,6 +497,11 @@ onMounted(() => {
 
   .price {
     color: #f56c6c;
+    font-weight: 500;
+  }
+
+  .text-warning {
+    color: #e6a23c;
     font-weight: 500;
   }
 }

@@ -29,15 +29,18 @@ const props = defineProps({
   value: { type: [Number, String], default: '' },
   suffix: { type: String, default: '' },
   icon: { type: String, default: '' },
+  decimals: { type: Number, default: 2 },
   trend: { type: String, default: '', validator: (v) => ['', 'up', 'down'].includes(v) },
   trendValue: { type: String, default: '' },
 })
 
 const displayValue = computed(() => {
-  if (typeof props.value === 'number') {
-    return props.value.toLocaleString('zh-CN')
-  }
-  return props.value
+  const num = Number(props.value)
+  if (isNaN(num)) return props.value
+  return num.toLocaleString('zh-CN', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: props.decimals,
+  })
 })
 
 const trendClass = computed(() => {

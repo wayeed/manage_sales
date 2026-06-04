@@ -25,6 +25,12 @@ export const getMyApplications = (params) => get('/follow-up-approvals/my', para
 export const getPendingApprovals = (params) => get('/follow-up-approvals/pending', params)
 
 /**
+ * 查询我已处理的审批列表（已通过/已拒绝）
+ * @param {Object} params - { status, page, page_size }
+ */
+export const getProcessedApprovals = (params) => get('/follow-up-approvals/processed', params)
+
+/**
  * 审批通过
  * @param {number} id - 申请ID
  */

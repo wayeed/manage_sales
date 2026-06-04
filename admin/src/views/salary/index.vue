@@ -192,6 +192,7 @@ import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getSalaryList, generateSalary, confirmSalary, paySalary } from '@/api/salary'
+import { useUserStore } from '@/store/user'
 import { formatCurrency } from '@/utils/format'
 
 const router = useRouter()
@@ -304,7 +305,11 @@ const handleGenerateSubmit = async () => {
 
   submitLoading.value = true
   try {
-    await generateSalary({ month: generateForm.month })
+    const userStore = useUserStore()
+    await generateSalary({
+      store_id: userStore.userInfo?.store_id || 1,
+      salary_month: generateForm.month,
+    })
     ElMessage.success('工资生成成功')
     generateDialogVisible.value = false
     fetchList()

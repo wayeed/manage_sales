@@ -128,8 +128,8 @@ export default {
       submitting.value = true
       try {
         await changePassword({
-          oldPassword: form.value.oldPassword,
-          newPassword: form.value.newPassword
+          old_password: form.value.oldPassword,
+          new_password: form.value.newPassword
         })
         uni.showToast({ title: '修改成功，请重新登录', icon: 'success' })
         setTimeout(() => {
@@ -297,9 +297,12 @@ export default {
 .submit-btn {
   width: 100%;
   height: 88rpx;
-  line-height: 88rpx;
   font-size: 32rpx;
   border-radius: 12rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
 
   &.disabled {
     opacity: 0.6;

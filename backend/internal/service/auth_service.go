@@ -26,10 +26,16 @@ type UserVO struct {
 	RealName string `json:"real_name" example:"张三"`
 	Phone string `json:"phone" example:"13800138000"`
 	Avatar string `json:"avatar" example:"https://example.com/avatar/default.png"`
-	Role int `json:"role" example:1`
+	Role int8 `json:"role" example:1`
 	Status int8 `json:"status" example:1`
 	StoreID *int64 `json:"store_id" example:1`
 	StoreName string `json:"store_name,omitempty" example:"总店"`
+	EmployeeNo string `json:"employee_no,omitempty" example:"EMP001"`
+	EntryDate *time.Time `json:"entry_date,omitempty" example:"2025-01-15T00:00:00+08:00"`
+	Level int8 `json:"level" example:1`
+	ParentName string `json:"parent_name,omitempty" example:"李四"`
+	BankName string `json:"bank_name,omitempty" example:"中国工商银行"`
+	BankAccount string `json:"bank_account,omitempty" example:"6222021234567890123"`
 }
 
 // UserDetail 用户详情（包含角色和权限）
@@ -144,17 +150,32 @@ func (s *AuthService) GetCurrentUser(userID int64) (*UserDetail, error) {
 		storeName = user.Store.StoreName
 	}
 
+	// 获取上级姓名
+	parentName := ""
+	if user.ParentID != nil && *user.ParentID > 0 {
+		var parent models.User
+		if err := s.userRepo.DB.Select("real_name").First(&parent, *user.ParentID).Error; err == nil {
+			parentName = parent.RealName
+		}
+	}
+
 	return &UserDetail{
 		UserVO: &UserVO{
-			ID:        user.ID,
-			Username:  user.Username,
-			RealName:  user.RealName,
-			Phone:     user.Phone,
-			Avatar:    user.Avatar,
-			Role:      user.Role,
-			Status:    user.Status,
-			StoreID:   user.StoreID,
-			StoreName: storeName,
+			ID:          user.ID,
+			Username:    user.Username,
+			RealName:    user.RealName,
+			Phone:       user.Phone,
+			Avatar:      user.Avatar,
+			Role:        user.Role,
+			Status:      user.Status,
+			StoreID:     user.StoreID,
+			StoreName:   storeName,
+			EmployeeNo:  user.EmployeeNo,
+			EntryDate:   user.EntryDate,
+			Level:       user.Level,
+			ParentName:  parentName,
+			BankName:    user.BankName,
+			BankAccount: user.BankAccount,
 		},
 		Roles:       user.Roles,
 		Permissions: permissions,

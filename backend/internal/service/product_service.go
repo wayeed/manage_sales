@@ -2,14 +2,29 @@ package service
 
 import (
 	"errors"
+	"fmt"
+	"strconv"
+	"strings"
 
 	"furniture-commission/internal/models"
 	apperrors "furniture-commission/internal/pkg/errors"
+	"furniture-commission/internal/pkg/excel"
 	"furniture-commission/internal/repository"
 
 	"github.com/shopspring/decimal"
+	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
+
+// SKURequest SKU请求
+type SKURequest struct {
+	SKUCode   string          `json:"sku_code" example:"SKU001"`
+	SKUName   string          `json:"sku_name" example:"真皮沙发-红色"`
+	Attributes string         `json:"attributes" example:"{\"颜色\":\"红色\"}"`
+	Barcode   string          `json:"barcode" example:"6901234567890"`
+	SalePrice float64         `json:"sale_price" example:"8999.00"`
+	CostPrice float64         `json:"cost_price" example:"6000.00"`
+}
 
 // CreateProductRequest 创建商品请求
 type CreateProductRequest struct {
@@ -18,6 +33,10 @@ type CreateProductRequest struct {
 	ProductCode string `json:"product_code" example:"P001"`
 	ProductName string `json:"product_name" binding:"required" example:"真皮沙发"`
 	Brand string `json:"brand" example:"品牌A"`
+	Style string `json:"style" example:""`
+	Unit string `json:"unit" example:"件"`
+	Series string `json:"series" example:"现代系列"`
+	SubCategory string `json:"sub_category" example:"A"`
 	ProductImage string `json:"product_image" example:"https://example.com/product/sofa.jpg"`
 	Description string `json:"description" example:"高档真皮沙发，三座位"`
 	ListPrice float64 `json:"list_price" example:8999.00`
@@ -26,6 +45,7 @@ type CreateProductRequest struct {
 	CostPrice float64 `json:"cost_price" example:6000.00`
 	TotalCostRate float64 `json:"total_cost_rate" example:1.20`
 	WarningStock int `json:"warning_stock" example:10`
+	SKUs []SKURequest `json:"skus"`
 }
 
 // UpdateProductRequest 更新商品请求
@@ -33,6 +53,10 @@ type UpdateProductRequest struct {
 	CategoryID *int64 `json:"category_id" example:1`
 	ProductName string `json:"product_name" example:"真皮沙发"`
 	Brand string `json:"brand" example:"品牌A"`
+	Style *string `json:"style" example:""`
+	Unit *string `json:"unit" example:"件"`
+	Series *string `json:"series" example:"现代系列"`
+	SubCategory *string `json:"sub_category" example:"A"`
 	ProductImage string `json:"product_image" example:"https://example.com/product/sofa.jpg"`
 	Description string `json:"description" example:"高档真皮沙发，三座位"`
 	ListPrice *float64 `json:"list_price" example:8999.00`
@@ -41,6 +65,7 @@ type UpdateProductRequest struct {
 	CostPrice *float64 `json:"cost_price" example:6000.00`
 	TotalCostRate *float64 `json:"total_cost_rate" example:1.20`
 	WarningStock *int `json:"warning_stock" example:10`
+	SKUs []SKURequest `json:"skus"`
 }
 
 // ListProductRequest 商品列表查询请求
@@ -116,6 +141,10 @@ func (s *ProductService) Create(req *CreateProductRequest, createdBy int64) erro
 		ProductCode:   req.ProductCode,
 		ProductName:   req.ProductName,
 		Brand:         req.Brand,
+		Style:         req.Style,
+		Unit:          req.Unit,
+		Series:        req.Series,
+		SubCategory:   req.SubCategory,
 		ProductImage:  req.ProductImage,
 		Description:   req.Description,
 		ListPrice:     decimal.NewFromFloat(req.ListPrice),
@@ -128,7 +157,39 @@ func (s *ProductService) Create(req *CreateProductRequest, createdBy int64) erro
 		CreatedBy:     &createdBy,
 	}
 
-	if err := s.db.Create(product).Error; err != nil {
+	// 单位默认值
+	if product.Unit == "" {
+		product.Unit = "件"
+	}
+
+	// 使用事务创建商品和SKU
+	err := s.db.Transaction(func(tx *gorm.DB) error {
+		// 创建商品
+		if err := tx.Create(product).Error; err != nil {
+			return err
+		}
+
+		// 创建SKU
+			if len(req.SKUs) > 0 {
+				for _, skuReq := range req.SKUs {
+					sku := &models.ProductSKU{
+						ProductID:  product.ID,
+						SKUCode:    skuReq.SKUCode,
+						SKUName:    skuReq.SKUName,
+						Attributes: datatypes.JSON(skuReq.Attributes),
+						Barcode:    skuReq.Barcode,
+						Status:     1,
+					}
+					if err := tx.Create(sku).Error; err != nil {
+						return err
+					}
+				}
+			}
+
+		return nil
+	})
+
+	if err != nil {
 		return &AppError{Code: apperrors.InternalError, Message: "创建商品失败"}
 	}
 	return nil
@@ -153,6 +214,18 @@ func (s *ProductService) Update(id int64, req *UpdateProductRequest) error {
 	if req.Brand != "" {
 		product.Brand = req.Brand
 	}
+	if req.Style != nil {
+		product.Style = *req.Style
+	}
+	if req.Unit != nil {
+		product.Unit = *req.Unit
+	}
+	if req.Series != nil {
+		product.Series = *req.Series
+	}
+	if req.SubCategory != nil {
+		product.SubCategory = *req.SubCategory
+	}
 	product.ProductImage = req.ProductImage
 	product.Description = req.Description
 	if req.ListPrice != nil {
@@ -174,8 +247,82 @@ func (s *ProductService) Update(id int64, req *UpdateProductRequest) error {
 		product.WarningStock = *req.WarningStock
 	}
 
-	if err := s.db.Save(product).Error; err != nil {
-		return &AppError{Code: apperrors.InternalError, Message: "更新商品失败"}
+	// 使用事务更新商品和SKU
+	err = s.db.Transaction(func(tx *gorm.DB) error {
+		// 更新商品
+		if err := tx.Save(product).Error; err != nil {
+			return fmt.Errorf("保存商品失败: %w", err)
+		}
+
+		// 更新SKU（删除旧SKU，创建新SKU）
+		if len(req.SKUs) > 0 {
+			// 先查询该商品的所有旧SKU编码
+			var oldSkus []models.ProductSKU
+			if err := tx.Where("product_id = ?", product.ID).Find(&oldSkus).Error; err != nil {
+				return fmt.Errorf("查询旧SKU失败: %w", err)
+			}
+
+			// 收集需要保留的SKU编码（新提交的SKU编码）
+			newSkuCodes := make(map[string]bool)
+			for _, skuReq := range req.SKUs {
+				if skuReq.SKUCode != "" {
+					newSkuCodes[skuReq.SKUCode] = true
+				}
+			}
+
+			// 删除不再需要的旧SKU（编码不在新列表中的）
+			for _, oldSku := range oldSkus {
+				if !newSkuCodes[oldSku.SKUCode] {
+					if err := tx.Unscoped().Delete(&oldSku).Error; err != nil {
+						return fmt.Errorf("删除旧SKU[%s]失败: %w", oldSku.SKUCode, err)
+					}
+				}
+			}
+
+			// 更新或创建SKU
+			for i, skuReq := range req.SKUs {
+				// 检查SKU编码是否为空
+				if skuReq.SKUCode == "" {
+					return fmt.Errorf("第%d个SKU编码不能为空", i+1)
+				}
+
+				// 查找是否已存在该SKU编码
+				var existingSku models.ProductSKU
+				err := tx.Where("sku_code = ?", skuReq.SKUCode).First(&existingSku).Error
+				if err == nil {
+					// 已存在，更新
+					existingSku.ProductID = product.ID
+					existingSku.SKUName = skuReq.SKUName
+					existingSku.Attributes = datatypes.JSON(skuReq.Attributes)
+					existingSku.Barcode = skuReq.Barcode
+					existingSku.Status = 1
+					if err := tx.Save(&existingSku).Error; err != nil {
+						return fmt.Errorf("更新SKU[%s]失败: %w", skuReq.SKUCode, err)
+					}
+				} else if errors.Is(err, gorm.ErrRecordNotFound) {
+					// 不存在，创建新SKU
+					sku := &models.ProductSKU{
+						ProductID:  product.ID,
+						SKUCode:    skuReq.SKUCode,
+						SKUName:    skuReq.SKUName,
+						Attributes: datatypes.JSON(skuReq.Attributes),
+						Barcode:    skuReq.Barcode,
+						Status:     1,
+					}
+					if err := tx.Create(sku).Error; err != nil {
+						return fmt.Errorf("创建SKU[%s]失败: %w", skuReq.SKUCode, err)
+					}
+				} else {
+					return fmt.Errorf("查询SKU[%s]失败: %w", skuReq.SKUCode, err)
+				}
+			}
+		}
+
+		return nil
+	})
+
+	if err != nil {
+		return &AppError{Code: apperrors.InternalError, Message: fmt.Sprintf("更新商品失败: %v", err)}
 	}
 	return nil
 }
@@ -259,15 +406,219 @@ func (s *ProductService) GetDetail(id int64) (*models.Product, error) {
 	return product, nil
 }
 
-// BatchImport 批量导入商品（预留）
-func (s *ProductService) BatchImport(storeID int64, createdBy int64, items []CreateProductRequest) (int, error) {
-	successCount := 0
-	for _, item := range items {
-		item.StoreID = storeID
-		if err := s.Create(&item, createdBy); err != nil {
+// ImportResult 导入结果
+type ImportResult struct {
+	TotalCount   int           `json:"total_count"`
+	SuccessCount int           `json:"success_count"`
+	FailCount    int           `json:"fail_count"`
+	Errors       []ImportError `json:"errors"`
+}
+
+// ImportError 导入错误详情
+type ImportError struct {
+	Row     int    `json:"row"`
+	Code    string `json:"code"`
+	Message string `json:"message"`
+}
+
+// BatchImport 批量导入商品（单Sheet：每行=一个商品，规格颜色自动生成SKU组合）
+func (s *ProductService) BatchImport(storeID int64, createdBy int64, fileData []byte) (*ImportResult, error) {
+	// 1. 解析Excel文件
+	rows, err := excel.ParseImportFile(fileData)
+	if err != nil {
+		return nil, &AppError{Code: 400, Message: err.Error()}
+	}
+
+	if len(rows) == 0 {
+		return nil, &AppError{Code: 400, Message: "Excel中没有数据"}
+	}
+
+	result := &ImportResult{
+		TotalCount: len(rows),
+	}
+
+	// 2. 预处理：自动编码
+	maxProductSeq, _ := s.getMaxProductCodeSeq(storeID)
+
+	// 记录本次导入已使用的编码（避免同一文件内重复）
+	usedProductCodes := make(map[string]bool)
+	usedSKUCodes := make(map[string]bool)
+
+	// 3. 逐行创建商品（一行一个商品，规格颜色生成SKU组合）
+	for _, row := range rows {
+		if row.ProductName == "" {
+			result.Errors = append(result.Errors, ImportError{
+				Row: row.Row, Code: row.ProductCode, Message: "商品名称不能为空",
+			})
+			result.FailCount++
 			continue
 		}
-		successCount++
+
+		// 商品编码处理
+		code := row.ProductCode
+		if code == "" {
+			// 自动生成编码，确保唯一
+			for {
+				maxProductSeq++
+				code = fmt.Sprintf("ZD%d", maxProductSeq)
+				// 检查数据库中是否已存在
+				existing, _ := s.productRepo.FindByCode(storeID, code)
+				if existing == nil && !usedProductCodes[code] {
+					break
+				}
+			}
+		} else {
+			// 手动填写编码，检查唯一性
+			if usedProductCodes[code] {
+				result.Errors = append(result.Errors, ImportError{
+					Row: row.Row, Code: code, Message: "商品编码在本文件中重复",
+				})
+				result.FailCount++
+				continue
+			}
+			existing, _ := s.productRepo.FindByCode(storeID, code)
+			if existing != nil {
+				result.Errors = append(result.Errors, ImportError{
+					Row: row.Row, Code: code, Message: "商品编码已存在",
+				})
+				result.FailCount++
+				continue
+			}
+		}
+		usedProductCodes[code] = true
+
+		// 查找品类ID（按品类名称查找）
+		var categoryID *int64
+		if row.CategoryName != "" {
+			var category models.Category
+			if err := s.db.Where("category_name = ?", row.CategoryName).First(&category).Error; err != nil {
+				result.Errors = append(result.Errors, ImportError{
+					Row: row.Row, Code: code,
+					Message: fmt.Sprintf("品类名称[%s]不存在", row.CategoryName),
+				})
+				result.FailCount++
+				continue
+			}
+			categoryID = &category.ID
+		}
+
+		// 解析规格和颜色，生成SKU组合
+		attrCombos := excel.ParseSpecColor(row.Spec, row.Color)
+
+		// 生成SKU列表
+		var skus []SKURequest
+		for i, attrs := range attrCombos {
+			// SKU编码格式：商品编码-01、-02...
+			skuSeq := i + 1
+			skuCode := fmt.Sprintf("%s-%02d", code, skuSeq)
+
+			// 检查SKU编码是否已存在（数据库或本次文件内）
+			var existingSku models.ProductSKU
+			err := s.db.Where("sku_code = ?", skuCode).First(&existingSku).Error
+			if err == nil || usedSKUCodes[skuCode] {
+				// 如果冲突，使用递增后缀
+				for j := 1; j <= 1000; j++ {
+					skuCode = fmt.Sprintf("%s-%s", code, fmt.Sprintf("%02d%02d", skuSeq, j))
+					var exist models.ProductSKU
+					if err := s.db.Where("sku_code = ?", skuCode).First(&exist).Error; err != nil {
+						if !usedSKUCodes[skuCode] {
+							break
+						}
+					}
+				}
+			}
+			usedSKUCodes[skuCode] = true
+
+			skuName := excel.SKUNameFromAttrs(row.ProductName, attrs)
+
+			// 条码：第一个SKU使用输入的条码，其他留空
+			barcode := ""
+			if i == 0 {
+				barcode = row.Barcode
+			}
+
+			skus = append(skus, SKURequest{
+				SKUCode:    skuCode,
+				SKUName:    skuName,
+				Attributes: excel.AttributesToJSON(attrs),
+				Barcode:    barcode,
+			})
+		}
+
+		req := &CreateProductRequest{
+			StoreID:       storeID,
+			CategoryID:    categoryID,
+			ProductCode:   code,
+			ProductName:   row.ProductName,
+			Brand:         row.Brand,
+			Style:         row.Style,
+			Unit:          row.Unit,
+			Series:        row.Series,
+			SubCategory:   row.SubCategory,
+			ListPrice:     row.ListPrice,
+			ReferenceCost: row.ReferenceCost,
+			TotalCostRate: row.TotalCostRate,
+			WarningStock:  row.WarningStock,
+			SKUs:          skus,
+		}
+
+		if err := s.Create(req, createdBy); err != nil {
+			result.Errors = append(result.Errors, ImportError{
+				Row: row.Row, Code: code, Message: err.Error(),
+			})
+			result.FailCount++
+			continue
+		}
+
+		result.SuccessCount++
 	}
-	return successCount, nil
+
+	return result, nil
+}
+
+// getMaxProductCodeSeq 获取当前最大商品编码序号
+func (s *ProductService) getMaxProductCodeSeq(storeID int64) (int, error) {
+	var maxCode string
+	err := s.db.Model(&models.Product{}).
+		Where("store_id = ? AND product_code LIKE 'ZD%'", storeID).
+		Select("MAX(product_code)").
+		Scan(&maxCode).Error
+	if err != nil {
+		return 100000, nil // 出错时从100000开始
+	}
+
+	if maxCode == "" {
+		return 100000, nil
+	}
+
+	// 提取数字部分
+	maxCode = strings.TrimPrefix(maxCode, "ZD")
+	seq, err := strconv.Atoi(maxCode)
+	if err != nil {
+		return 100000, nil
+	}
+	return seq, nil
+}
+
+// getMaxSKUCodeSeq 获取当前最大SKU编码序号
+func (s *ProductService) getMaxSKUCodeSeq() (int, error) {
+	var maxCode string
+	err := s.db.Model(&models.ProductSKU{}).
+		Where("sku_code LIKE 'SKU%'").
+		Select("MAX(sku_code)").
+		Scan(&maxCode).Error
+	if err != nil {
+		return 100000, nil
+	}
+
+	if maxCode == "" {
+		return 100000, nil
+	}
+
+	maxCode = strings.TrimPrefix(maxCode, "SKU")
+	seq, err := strconv.Atoi(maxCode)
+	if err != nil {
+		return 100000, nil
+	}
+	return seq, nil
 }

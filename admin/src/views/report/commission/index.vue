@@ -115,15 +115,25 @@ const fetchCommissionData = async () => {
     }
     const res = await getCommissionAnalysis(params)
     if (res.data) {
-      summary.totalCommission = res.data.totalCommission || 0
-      summary.avgCommission = res.data.avgCommission || 0
+      // 适配后端下划线命名到前端驼峰命名
+      summary.totalCommission = res.data.total_commission || 0
+      // 后端没有返回人均提成，暂不显示
+      summary.avgCommission = 0
 
-      typePieData.value = res.data.typeDistribution || []
-      trendXData.value = res.data.trendMonths || []
+      // 提成类型分布
+      const commissionByType = res.data.commission_by_type || []
+      typePieData.value = commissionByType.map(item => ({
+        name: item.type_name,
+        value: item.amount || 0
+      }))
+
+      // 月度提成趋势
+      const incentiveComparison = res.data.incentive_comparison || []
+      trendXData.value = incentiveComparison.map(item => item.period)
       trendSeriesData.value = [
         {
           name: '提成总额',
-          data: res.data.trendCommissions || [],
+          data: incentiveComparison.map(item => item.commission || 0),
           itemStyle: { color: '#1890ff' },
           areaStyle: { color: 'rgba(24,144,255,0.1)' },
         },

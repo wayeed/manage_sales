@@ -17,16 +17,22 @@ func NewCustomerRepository(db *gorm.DB) *CustomerRepository {
 }
 
 // ListWithFilter 带条件分页查询客户列表
-func (r *CustomerRepository) ListWithFilter(storeID, keyword, level string, page, pageSize int) ([]models.Customer, int64, error) {
+// salesmanID: 业务员ID，无关键字时用于过滤自己的客户；有关键字时精确匹配客户
+func (r *CustomerRepository) ListWithFilter(storeID, keyword, level string, page, pageSize int, salesmanID int64) ([]models.Customer, int64, error) {
 	db := r.db.Model(&models.Customer{})
 
 	if storeID != "" {
 		db = db.Where("store_id = ?", storeID)
 	}
+
 	if keyword != "" {
-		like := "%" + keyword + "%"
-		db = db.Where("customer_name LIKE ? OR phone LIKE ? OR customer_code LIKE ?", like, like, like)
+		// 有关键字时，精确匹配（完全相等）
+		db = db.Where("customer_name = ? OR phone = ? OR customer_code = ?", keyword, keyword, keyword)
+	} else if salesmanID > 0 {
+		// 无关键字时，只显示该业务员的客户（created_by 或 salesman_id）
+		db = db.Where("created_by = ? OR salesman_id = ?", salesmanID, salesmanID)
 	}
+
 	if level != "" {
 		db = db.Where("level = ?", level)
 	}
@@ -61,7 +67,7 @@ func (r *CustomerRepository) ListWithFilter(storeID, keyword, level string, page
 // FindByID 根据ID查找客户
 func (r *CustomerRepository) FindByID(id int64) (*models.Customer, error) {
 	var customer models.Customer
-	err := r.db.First(&customer, id).Error
+	err := r.db.Preload("Salesman").First(&customer, id).Error
 	if err != nil {
 		return nil, err
 	}

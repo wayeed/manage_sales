@@ -62,7 +62,11 @@ func (h *DashboardHandler) GetOverview(c *gin.Context) {
 		return
 	}
 
-	overview, err := h.dashboardService.GetOverview(storeID)
+	// 获取当前用户ID和角色
+	userID := GetUserID(c)
+	roleCodes := GetRoleCodes(c)
+
+	overview, err := h.dashboardService.GetOverview(storeID, userID, roleCodes)
 	if err != nil {
 		if appErr, ok := err.(*service.AppError); ok {
 			Error(c, appErr.Code, appErr.Message)

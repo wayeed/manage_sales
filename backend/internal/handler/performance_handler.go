@@ -82,8 +82,8 @@ func (h *PerformanceHandler) GetOverview(c *gin.Context) {
 	endDateStr := endDate.Format("2006-01-02")
 	periodValue := startDate.Format("2006-01")
 
-	// 获取提成汇总
-	summary, err := h.commissionSvc.GetSummary(userID, startDateStr, endDateStr)
+	// 获取提成汇总（使用 period_value 格式 YYYY-MM）
+	summary, err := h.commissionSvc.GetSummary(userID, periodValue, periodValue)
 	if err != nil {
 		summary = &service.CommissionSummary{}
 	}

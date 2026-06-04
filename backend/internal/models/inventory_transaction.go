@@ -32,5 +32,53 @@ type InventoryTransaction struct {
 	Creator   *User       `gorm:"foreignKey:CreatedBy" json:"creator,omitempty"`
 }
 
+// 库存交易类型常量
+const (
+	TransactionTypePurchaseIn  int8 = 1  // 采购入库
+	TransactionTypeSaleOut     int8 = 2  // 销售出库
+	TransactionTypeTransferOut int8 = 3  // 调拨出库
+	TransactionTypeTransferIn  int8 = 4  // 调拨入库
+	TransactionTypeProfit      int8 = 5  // 盘盈
+	TransactionTypeLoss        int8 = 6  // 盘亏
+	TransactionTypeGiftOut     int8 = 7  // 礼品出库
+	TransactionTypeGiftIn      int8 = 8  // 礼品入库
+	TransactionTypeLock        int8 = 9  // 库存锁定（订单创建时）
+	TransactionTypeUnlock      int8 = 10 // 库存解锁（订单取消/驳回时）
+	TransactionTypeLockToOut   int8 = 11 // 销售锁定转出库（送货出库时）
+	TransactionTypeReturnIn    int8 = 12 // 退货入库
+)
+
+// GetTransactionTypeName 获取交易类型名称
+func GetTransactionTypeName(transactionType int8) string {
+	switch transactionType {
+	case TransactionTypePurchaseIn:
+		return "采购入库"
+	case TransactionTypeSaleOut:
+		return "销售出库"
+	case TransactionTypeTransferOut:
+		return "调拨出库"
+	case TransactionTypeTransferIn:
+		return "调拨入库"
+	case TransactionTypeProfit:
+		return "盘盈"
+	case TransactionTypeLoss:
+		return "盘亏"
+	case TransactionTypeGiftOut:
+		return "礼品出库"
+	case TransactionTypeGiftIn:
+		return "礼品入库"
+	case TransactionTypeLock:
+		return "库存锁定"
+	case TransactionTypeUnlock:
+		return "库存解锁"
+	case TransactionTypeLockToOut:
+		return "销售锁定转出库"
+	case TransactionTypeReturnIn:
+		return "退货入库"
+	default:
+		return "未知"
+	}
+}
+
 // TableName 指定表名
 func (InventoryTransaction) TableName() string { return "inventory_transactions" }

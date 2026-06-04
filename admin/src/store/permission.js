@@ -97,6 +97,18 @@ export const asyncRoutes = [
         component: () => import('@/views/system/store/index.vue'),
         meta: { title: '门店管理', icon: 'Shop' },
       },
+      {
+        path: 'app-version',
+        name: 'AppVersionManage',
+        component: () => import('@/views/system/app-version/index.vue'),
+        meta: { title: 'APP版本管理', icon: 'Monitor' },
+      },
+      {
+        path: 'maintenance',
+        name: 'SystemMaintenance',
+        component: () => import('@/views/system/maintenance/index.vue'),
+        meta: { title: '平台维护', icon: 'Tools' },
+      },
     ],
   },
 
@@ -153,6 +165,12 @@ export const asyncRoutes = [
         component: () => import('@/views/order/detail.vue'),
         meta: { title: '订单详情', icon: 'View', hidden: true },
       },
+      {
+        path: 'outbound-approval',
+        name: 'OutboundApproval',
+        component: () => import('@/views/order/outbound-approval.vue'),
+        meta: { title: '出库审批', icon: 'CircleCheck' },
+      },
     ],
   },
 
@@ -168,6 +186,12 @@ export const asyncRoutes = [
         name: 'InventoryStock',
         component: () => import('@/views/inventory/stock/index.vue'),
         meta: { title: '库存查询', icon: 'Search' },
+      },
+      {
+        path: 'stocktaking',
+        name: 'InventoryStocktaking',
+        component: () => import('@/views/inventory/stocktaking/index.vue'),
+        meta: { title: '库存盘点', icon: 'DocumentChecked' },
       },
       {
         path: 'purchase',
@@ -217,6 +241,34 @@ export const asyncRoutes = [
         component: () => import('@/views/inventory/transaction/index.vue'),
         meta: { title: '流水记录', icon: 'Tickets' },
       },
+      {
+        path: 'trace',
+        name: 'InventoryTrace',
+        component: () => import('@/views/inventory/trace/index.vue'),
+        meta: { title: '库存穿透', icon: 'Connection' },
+      },
+    ],
+  },
+
+  // ==================== 送货管理 ====================
+  {
+    path: '/delivery',
+    component: Layout,
+    name: 'Delivery',
+    meta: { title: '送货管理', icon: 'Van' },
+    children: [
+      {
+        path: 'index',
+        name: 'DeliveryList',
+        component: () => import('@/views/delivery/index.vue'),
+        meta: { title: '送货记录', icon: 'List' },
+      },
+      {
+        path: 'pending',
+        name: 'PendingDelivery',
+        component: () => import('@/views/delivery/pending.vue'),
+        meta: { title: '待送货订单', icon: 'Bell' },
+      },
     ],
   },
 
@@ -249,7 +301,13 @@ export const asyncRoutes = [
         path: 'referral',
         name: 'CommissionReferral',
         component: () => import('@/views/commission/referral/index.vue'),
-        meta: { title: '转介绍提成', icon: 'Connection' },
+        meta: { title: '老带新管理', icon: 'Connection' },
+      },
+      {
+        path: 'settlement',
+        name: 'CommissionSettlement',
+        component: () => import('@/views/commission/settlement/index.vue'),
+        meta: { title: '结算管理', icon: 'Timer' },
       },
     ],
   },
@@ -266,6 +324,12 @@ export const asyncRoutes = [
         name: 'SalaryList',
         component: () => import('@/views/salary/index.vue'),
         meta: { title: '工资列表', icon: 'List' },
+      },
+      {
+        path: 'detail/:id',
+        name: 'SalaryDetail',
+        component: () => import('@/views/salary/detail.vue'),
+        meta: { title: '工资详情', icon: 'View', hidden: true },
       },
     ],
   },

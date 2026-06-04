@@ -17,6 +17,7 @@ type PurchaseOrder struct {
 	TotalQuantity	int	`gorm:"column:total_quantity;default:0" json:"total_quantity" example:"5"`
 	Status	int8	`gorm:"column:status;default:0" json:"status" example:"1"`
 	Remark	string	`gorm:"column:remark;type:varchar(500)" json:"remark" example:"备注信息"`
+	ReceiptRemark	string	`gorm:"column:receipt_remark;type:varchar(500)" json:"receipt_remark" example:"入库备注"`
 	CreatedAt	time.Time	`json:"created_at" example:"2025-01-15T00:00:00+08:00"`
 	UpdatedAt	time.Time	`json:"updated_at" example:"2025-01-15T00:00:00+08:00"`
 	CreatedBy	*int64	`gorm:"column:created_by" json:"created_by" example:"1"`

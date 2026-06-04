@@ -1,8 +1,11 @@
 package handler
 
 import (
+	"io"
+	"net/http"
 	"strconv"
 
+	"furniture-commission/internal/pkg/excel"
 	"furniture-commission/internal/service"
 
 	"github.com/gin-gonic/gin"
@@ -391,6 +394,85 @@ func (h *ProductHandler) ListAllSKU(c *gin.Context) {
 	}
 	
 	PageResponse(c, skus, total, page, pageSize)
+}
+
+// Import 批量导入商品
+// @Summary      批量导入商品
+// @Description  上传xlsx文件批量导入商品及SKU
+// @Tags         商品管理
+// @Accept       multipart/form-data
+// @Produce      json
+// @Param        file  formData  file  true  "xlsx文件"
+// @Success      200  {object}  handler.Response  "成功"
+// @Failure      200  {object}  handler.Response  "业务错误"
+// @Failure      401  {object}  handler.Response  "未认证"
+// @Security     BearerAuth
+// @Router       /products/import [post]
+func (h *ProductHandler) Import(c *gin.Context) {
+	file, err := c.FormFile("file")
+	if err != nil {
+		Error(c, 400, "请上传文件")
+		return
+	}
+
+	// 检查文件后缀
+	if file.Filename == "" || len(file.Filename) < 5 || file.Filename[len(file.Filename)-5:] != ".xlsx" {
+		Error(c, 400, "仅支持xlsx格式文件")
+		return
+	}
+
+	// 读取文件内容
+	src, err := file.Open()
+	if err != nil {
+		Error(c, 400, "读取文件失败")
+		return
+	}
+	defer src.Close()
+
+	fileData, err := io.ReadAll(src)
+	if err != nil {
+		Error(c, 400, "读取文件内容失败")
+		return
+	}
+
+	// 获取用户门店ID
+	storeID := GetStoreID(c)
+	createdBy := GetUserID(c)
+
+	// 执行导入
+	result, err := h.productService.BatchImport(storeID, createdBy, fileData)
+	if err != nil {
+		if appErr, ok := err.(*service.AppError); ok {
+			Error(c, appErr.Code, appErr.Message)
+			return
+		}
+		Error(c, 500, "导入失败")
+		return
+	}
+
+	Success(c, result)
+}
+
+// DownloadTemplate 下载导入模板
+// @Summary      下载商品导入模板
+// @Description  下载商品批量导入的xlsx模板文件
+// @Tags         商品管理
+// @Produce      octet-stream
+// @Success      200  {file}  binary  "xlsx文件"
+// @Failure      401  {object}  handler.Response  "未认证"
+// @Security     BearerAuth
+// @Router       /products/import-template [get]
+func (h *ProductHandler) DownloadTemplate(c *gin.Context) {
+	data, err := excel.GenerateTemplate()
+	if err != nil {
+		Error(c, 500, "生成模板失败")
+		return
+	}
+
+	c.Header("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+	c.Header("Content-Disposition", "attachment; filename=product_import_template.xlsx")
+	c.Header("Content-Length", strconv.Itoa(len(data)))
+	c.Data(http.StatusOK, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", data)
 }
 
 // ListSKUWithStock 获取带库存的SKU列表（用于订单选商品）

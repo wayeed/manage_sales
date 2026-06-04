@@ -59,6 +59,10 @@ export default {
       type: Array,
       default: () => []
     },
+    gifts: {
+      type: Array,
+      default: () => []
+    },
     isPeerOrder: {
       type: Boolean,
       default: false
@@ -85,10 +89,15 @@ export default {
       try {
         const res = await estimateCommission({
           items: props.items.map(item => ({
+            sku_id: item.skuId || 0,
             list_price: parseFloat(item.listPrice) || 0,
             sale_price: parseFloat(item.salePrice) || 0,
             cost_price: parseFloat(item.costPrice) || 0,
             quantity: parseInt(item.quantity) || 1
+          })),
+          gifts: props.gifts.map(gift => ({
+            cost_price: parseFloat(gift.costPrice) || 0,
+            quantity: parseInt(gift.quantity) || 1
           })),
           is_peer_order: props.isPeerOrder ? 1 : 0
         })
@@ -256,5 +265,9 @@ export default {
   font-weight: 500;
   background: #1890ff;
   color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
 }
 </style>

@@ -38,10 +38,10 @@
         <CardStatistic title="订单数" :value="summary.orderCount" suffix="单" icon="Document" />
       </el-col>
       <el-col :span="6">
-        <CardStatistic title="客单价" :value="summary.avgPrice" suffix="元" icon="Coin" />
+        <CardStatistic title="客单价" :value="summary.avgPrice" suffix="元" icon="Coin" :decimals="2" />
       </el-col>
       <el-col :span="6">
-        <CardStatistic title="利润率" :value="summary.profitRate" suffix="%" icon="TrendCharts" />
+        <CardStatistic title="利润率" :value="summary.profitRate" suffix="%" icon="TrendCharts" :decimals="1" />
       </el-col>
     </el-row>
 
@@ -106,7 +106,7 @@
       <div class="pagination-wrapper">
         <el-pagination
           v-model:current-page="pagination.page"
-          v-model:page-size="pagination.pageSize"
+          v-model:page-size="pagination.page_size"
           :total="pagination.total"
           :page-sizes="[10, 20, 50]"
           layout="total, sizes, prev, pager, next, jumper"
@@ -169,7 +169,11 @@ const fetchSummary = async () => {
     }
     const res = await getSalesSummary(params)
     if (res.data) {
-      Object.assign(summary, res.data)
+      // 适配后端下划线命名到前端驼峰命名
+      summary.totalSales = res.data.total_sales || 0
+      summary.orderCount = res.data.total_orders || 0
+      summary.avgPrice = res.data.avg_order_value || 0
+      summary.profitRate = res.data.profit_rate || 0
     }
   } catch (error) {
     console.error('获取销售摘要失败:', error)
@@ -188,18 +192,19 @@ const fetchTrend = async () => {
       params.end_date = dateRange.value[1]
     }
     const res = await getSalesTrend(params)
-    if (res.data) {
-      trendXData.value = res.data.dates || []
+    if (res.data && Array.isArray(res.data)) {
+      // 后端返回数组格式，每个元素包含 date, sales_amount, order_count
+      trendXData.value = res.data.map(item => item.date)
       trendSeriesData.value = [
         {
           name: '销售额',
-          data: res.data.salesAmounts || [],
+          data: res.data.map(item => item.sales_amount || 0),
           itemStyle: { color: '#1890ff' },
           areaStyle: { color: 'rgba(24,144,255,0.1)' },
         },
         {
           name: '订单数',
-          data: res.data.orderCounts || [],
+          data: res.data.map(item => item.order_count || 0),
           yAxisIndex: 1,
           itemStyle: { color: '#52c41a' },
         },
@@ -231,26 +236,34 @@ const initMockTrend = () => {
 const tableData = ref([])
 const pagination = reactive({
   page: 1,
-  pageSize: 10,
+  page_size: 10,
   total: 0,
 })
 
 const fetchTableData = async () => {
   loading.value = true
   try {
-    const params = {
-      page: pagination.page,
-      pageSize: pagination.pageSize,
-      dimension: dimension.value,
-    }
+    const params = { dimension: dimension.value }
     if (dateRange.value?.length === 2) {
       params.start_date = dateRange.value[0]
       params.end_date = dateRange.value[1]
     }
-    const res = await getSalesSummary(params)
-    if (res.data) {
-      tableData.value = res.data.list || []
-      pagination.total = res.data.total || 0
+    // 使用趋势数据作为表格数据
+    const res = await getSalesTrend(params)
+    if (res.data && Array.isArray(res.data)) {
+      // 转换后端数据为前端表格格式
+      tableData.value = res.data.map(item => ({
+        date: item.date,
+        orderCount: item.order_count || 0,
+        salesAmount: item.sales_amount || 0,
+        costAmount: item.cost || 0,
+        profit: item.profit || 0,
+        profitRate: item.sales_amount > 0 ? ((item.profit || 0) / item.sales_amount * 100).toFixed(2) : 0,
+        avgPrice: item.order_count > 0 ? ((item.sales_amount || 0) / item.order_count).toFixed(2) : 0,
+        returnCount: 0,
+        returnRate: 0,
+      }))
+      pagination.total = tableData.value.length
     }
   } catch (error) {
     console.error('获取销售明细失败:', error)

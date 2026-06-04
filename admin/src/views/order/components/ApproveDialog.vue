@@ -30,6 +30,18 @@
           placeholder="请输入审核备注"
         />
       </el-form-item>
+      <el-form-item v-if="formData.result === 'approved'" label="订金金额" prop="deposit_amount">
+        <el-input-number
+          v-model="formData.deposit_amount"
+          :precision="2"
+          :min="0"
+          :step="100"
+          controls-position="right"
+          style="width: 200px"
+          placeholder="请输入订金金额"
+        />
+        <span class="deposit-tip">元（选填）</span>
+      </el-form-item>
     </el-form>
     <template #footer>
       <el-button @click="handleClose">取消</el-button>
@@ -64,6 +76,7 @@ const submitLoading = ref(false)
 const formData = reactive({
   result: 'approved',
   remark: '',
+  deposit_amount: undefined,
 })
 
 const formRules = {
@@ -76,6 +89,7 @@ watch(
     if (val) {
       formData.result = 'approved'
       formData.remark = ''
+      formData.deposit_amount = undefined
     }
   }
 )
@@ -90,10 +104,14 @@ const handleSubmit = async () => {
 
   submitLoading.value = true
   try {
-    await approveOrder(props.order.id, {
-      result: formData.result,
+    const params = {
+      approved: formData.result === 'approved',
       remark: formData.remark,
-    })
+    }
+    if (formData.result === 'approved' && formData.deposit_amount !== undefined && formData.deposit_amount > 0) {
+      params.deposit_amount = String(formData.deposit_amount)
+    }
+    await approveOrder(props.order.id, params)
     ElMessage.success(formData.result === 'approved' ? '审核通过' : '已驳回')
     handleClose()
     emit('success')
@@ -104,3 +122,11 @@ const handleSubmit = async () => {
   }
 }
 </script>
+
+<style scoped>
+.deposit-tip {
+  margin-left: 8px;
+  color: #909399;
+  font-size: 12px;
+}
+</style>

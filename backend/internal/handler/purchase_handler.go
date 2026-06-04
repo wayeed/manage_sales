@@ -194,12 +194,111 @@ func (h *PurchaseHandler) ConfirmReceipt(c *gin.Context) {
 
 	createdBy := GetUserID(c)
 
-	if err := h.purchaseService.ConfirmReceipt(id, req.WarehouseID, createdBy); err != nil {
+	if err := h.purchaseService.ConfirmReceipt(id, req.WarehouseID, req.Remark, createdBy); err != nil {
 		if appErr, ok := err.(*service.AppError); ok {
 			Error(c, appErr.Code, appErr.Message)
 			return
 		}
 		Error(c, 500, "确认入库失败")
+		return
+	}
+
+	Success(c, nil)
+}
+
+// UpdateOrder 更新采购订单
+// @Summary      更新采购订单
+// @Description  更新采购订单信息及明细，仅待审核和已审核状态允许修改
+// @Tags         采购管理
+// @Accept       json
+// @Produce      json
+// @Param        id       path  int64                            true  "采购订单ID"
+// @Param        request  body  service.UpdatePurchaseOrderRequest  true  "更新采购订单请求"
+// @Success      200  {object}  handler.Response  "成功"
+// @Failure      200  {object}  handler.Response  "业务错误"
+// @Failure      401  {object}  handler.Response  "未认证"
+// @Security     BearerAuth
+// @Router       /purchases/{id} [put]
+func (h *PurchaseHandler) UpdateOrder(c *gin.Context) {
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		Error(c, 400, "无效的采购订单ID")
+		return
+	}
+
+	var req service.UpdatePurchaseOrderRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		Error(c, 400, "请求参数错误")
+		return
+	}
+
+	if err := h.purchaseService.UpdateOrder(id, &req); err != nil {
+		if appErr, ok := err.(*service.AppError); ok {
+			Error(c, appErr.Code, appErr.Message)
+			return
+		}
+		Error(c, 500, "更新采购订单失败")
+		return
+	}
+
+	Success(c, nil)
+}
+
+// ListMergeableOrders 查询可合并的采购单
+// @Summary      查询可合并采购单
+// @Description  查询状态为待审核或已审核的采购单，用于一键生成采购单时选择加入已有采购单
+// @Tags         采购管理
+// @Produce      json
+// @Param        store_id  query  int64  false  "门店ID"
+// @Success      200  {object}  handler.Response  "成功"
+// @Security     BearerAuth
+// @Router       /purchases/mergeable [get]
+func (h *PurchaseHandler) ListMergeableOrders(c *gin.Context) {
+	storeID, _ := strconv.ParseInt(c.Query("store_id"), 10, 64)
+
+	orders, err := h.purchaseService.ListMergeableOrders(storeID)
+	if err != nil {
+		if appErr, ok := err.(*service.AppError); ok {
+			Error(c, appErr.Code, appErr.Message)
+			return
+		}
+		Error(c, 500, "查询可合并采购单失败")
+		return
+	}
+
+	Success(c, orders)
+}
+
+// AppendItems 向已有采购单追加商品
+// @Summary      追加采购商品
+// @Description  向已有的未入库采购单追加商品明细
+// @Tags         采购管理
+// @Accept       json
+// @Produce      json
+// @Param        id       path  int64                    true  "采购订单ID"
+// @Param        request  body  service.AppendItemsRequest  true  "追加商品请求"
+// @Success      200  {object}  handler.Response  "成功"
+// @Security     BearerAuth
+// @Router       /purchases/{id}/items [post]
+func (h *PurchaseHandler) AppendItems(c *gin.Context) {
+	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	if err != nil {
+		Error(c, 400, "无效的采购订单ID")
+		return
+	}
+
+	var req service.AppendItemsRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		Error(c, 400, "请求参数错误")
+		return
+	}
+
+	if err := h.purchaseService.AppendItems(id, &req); err != nil {
+		if appErr, ok := err.(*service.AppError); ok {
+			Error(c, appErr.Code, appErr.Message)
+			return
+		}
+		Error(c, 500, "追加采购商品失败")
 		return
 	}
 

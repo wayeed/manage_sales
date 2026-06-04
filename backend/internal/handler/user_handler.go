@@ -18,6 +18,12 @@ type AssignRoleRequest struct {
 	RoleIDs []int64 `json:"role_ids" binding:"required" example:"1,2,3"`
 }
 
+// ChangePasswordRequest 修改密码请求
+type ChangePasswordRequest struct {
+	OldPassword string `json:"old_password" binding:"required" example:"123456"`
+	NewPassword string `json:"new_password" binding:"required" example:"newpass123"`
+}
+
 // UserHandler 用户处理器
 type UserHandler struct {
 	userService *service.UserService
@@ -102,6 +108,38 @@ func (h *UserHandler) Create(c *gin.Context) {
 			return
 		}
 		Error(c, 500, "创建用户失败")
+		return
+	}
+
+	Success(c, nil)
+}
+
+// ChangePassword 修改密码
+// @Summary      修改密码
+// @Description  用户修改自己的密码
+// @Tags         用户管理
+// @Accept       json
+// @Produce      json
+// @Param        request  body  ChangePasswordRequest  true  "修改密码请求"
+// @Success      200  {object}  handler.Response  "成功"
+// @Failure      200  {object}  handler.Response  "业务错误"
+// @Failure      401  {object}  handler.Response  "未认证"
+// @Security     BearerAuth
+// @Router       /users/change-password [post]
+func (h *UserHandler) ChangePassword(c *gin.Context) {
+	var req ChangePasswordRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		Error(c, 400, "请求参数错误")
+		return
+	}
+
+	userID := GetUserID(c)
+	if err := h.userService.ChangePassword(userID, req.OldPassword, req.NewPassword); err != nil {
+		if appErr, ok := err.(*service.AppError); ok {
+			Error(c, appErr.Code, appErr.Message)
+			return
+		}
+		Error(c, 500, "修改密码失败")
 		return
 	}
 

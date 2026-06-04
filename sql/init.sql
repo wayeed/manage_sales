@@ -22,10 +22,12 @@ CREATE TABLE `stores` (
     `status` TINYINT DEFAULT 1 COMMENT '状态(0-禁用,1-启用)',
     `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    `deleted_at` datetime(3) DEFAULT NULL COMMENT '删除时间',
     PRIMARY KEY (`id`),
     UNIQUE KEY `uk_store_code` (`store_code`),
     KEY `idx_manager_id` (`manager_id`),
-    KEY `idx_status` (`status`)
+    KEY `idx_status` (`status`),
+    KEY `idx_stores_deleted_at` (`deleted_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='门店表';
 
 -- ============================================================
@@ -44,6 +46,7 @@ CREATE TABLE `users` (
     `department_id` BIGINT DEFAULT NULL COMMENT '部门ID',
     `role` TINYINT DEFAULT NULL COMMENT '角色(1-业务员,2-主管,3-店长,4-财务,5-管理员/老板,6-仓管)',
     `status` TINYINT DEFAULT 1 COMMENT '状态(0-禁用,1-启用,2-离职)',
+    `level` TINYINT DEFAULT 0 COMMENT '用户等级(0-普通,1-高级)',
     `entry_date` DATE DEFAULT NULL COMMENT '入职日期',
     `probation_end_date` DATE DEFAULT NULL COMMENT '试用期结束日期',
     `is_formal` TINYINT DEFAULT 0 COMMENT '是否转正(0-否,1-是)',
@@ -84,6 +87,7 @@ CREATE TABLE `categories` (
     `status` TINYINT DEFAULT 1 COMMENT '状态(0-禁用,1-启用)',
     `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    `deleted_at` datetime(3) DEFAULT NULL,
     PRIMARY KEY (`id`),
     UNIQUE KEY `uk_category_code` (`category_code`),
     KEY `idx_store_id` (`store_id`),
@@ -101,10 +105,15 @@ CREATE TABLE `products` (
     `product_code` VARCHAR(32) DEFAULT NULL COMMENT '商品编码',
     `product_name` VARCHAR(100) DEFAULT NULL COMMENT '商品名称',
     `brand` VARCHAR(50) DEFAULT NULL COMMENT '品牌',
+    `style` VARCHAR(100) DEFAULT NULL COMMENT '款式',
+    `unit` VARCHAR(20) DEFAULT '件' COMMENT '单位(件/张/个/把/套/台)',
+    `series` VARCHAR(50) DEFAULT NULL COMMENT '产品系列',
+    `sub_category` VARCHAR(10) DEFAULT NULL COMMENT '子分类',
     `product_image` VARCHAR(255) DEFAULT NULL COMMENT '商品图片',
     `description` TEXT DEFAULT NULL COMMENT '商品描述',
     `list_price` DECIMAL(12,2) DEFAULT 0.00 COMMENT '标价(零售价)',
     `min_price` DECIMAL(12,2) DEFAULT 0.00 COMMENT '最低售价',
+    `cost_price` DECIMAL(12,2) DEFAULT 0.00 COMMENT '成本价',
     `reference_cost` DECIMAL(12,2) DEFAULT 0.00 COMMENT '参考成本',
     `total_cost_rate` DECIMAL(5,4) DEFAULT 1.2000 COMMENT '总成本系数(含运费安装等)',
     `warning_stock` INT DEFAULT 10 COMMENT '库存预警值',
@@ -112,12 +121,14 @@ CREATE TABLE `products` (
     `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
     `created_by` BIGINT DEFAULT NULL COMMENT '创建人ID',
+    `deleted_at` datetime(3) DEFAULT NULL COMMENT '删除时间',
     PRIMARY KEY (`id`),
     UNIQUE KEY `uk_product_code` (`product_code`),
     KEY `idx_store_id` (`store_id`),
     KEY `idx_category_id` (`category_id`),
     KEY `idx_brand` (`brand`),
-    KEY `idx_status` (`status`)
+    KEY `idx_status` (`status`),
+    KEY `idx_product_deleted_at` (`deleted_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='商品表';
 
 -- ============================================================
@@ -134,11 +145,13 @@ CREATE TABLE `product_skus` (
     `status` TINYINT DEFAULT 1 COMMENT '状态(0-禁用,1-启用)',
     `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    `deleted_at` datetime(3) DEFAULT NULL COMMENT '删除时间',
     PRIMARY KEY (`id`),
     UNIQUE KEY `uk_sku_code` (`sku_code`),
     KEY `idx_product_id` (`product_id`),
     KEY `idx_barcode` (`barcode`),
     KEY `idx_status` (`status`)
+    KEY `idx_product_sku_deleted_at` (`deleted_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='SKU表';
 
 -- ============================================================
@@ -181,6 +194,7 @@ CREATE TABLE `purchase_orders` (
     `total_quantity` INT DEFAULT 0 COMMENT '采购总数量',
     `status` TINYINT DEFAULT 0 COMMENT '状态(0-待审核,1-已审核,2-已入库,3-已取消)',
     `remark` VARCHAR(500) DEFAULT NULL COMMENT '备注',
+    `receipt_remark` VARCHAR(500) DEFAULT NULL COMMENT '入库备注',
     `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
     `created_by` BIGINT DEFAULT NULL COMMENT '创建人ID',
@@ -239,6 +253,7 @@ CREATE TABLE `peers` (
     `status` TINYINT DEFAULT 1 COMMENT '状态(0-禁用,1-启用)',
     `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    `deleted_at` datetime(3) DEFAULT NULL,
     PRIMARY KEY (`id`),
     KEY `idx_store_id` (`store_id`),
     KEY `idx_phone` (`phone`),
@@ -279,9 +294,12 @@ CREATE TABLE `orders` (
     `peer_id` BIGINT DEFAULT NULL COMMENT '同行ID',
     `is_special_approved` TINYINT DEFAULT 0 COMMENT '是否特批(0-否,1-是)',
     `approval_remark` VARCHAR(500) DEFAULT NULL COMMENT '审批备注',
+    `edit_count` TINYINT DEFAULT 0 COMMENT '修改次数(0=未修改)',
     `approved_by` BIGINT DEFAULT NULL COMMENT '审批人ID',
     `approved_at` DATETIME DEFAULT NULL COMMENT '审批时间',
     `is_returned` TINYINT DEFAULT 0 COMMENT '是否退货(0-否,1-是)',
+    `is_draft` TINYINT DEFAULT 0 COMMENT '是否草稿(0-正式订单,1-草稿)',
+    `stock_status` TINYINT DEFAULT 0 COMMENT '库存状态(0-全部有库存,1-部分缺货,2-全部缺货)',
     `return_amount` DECIMAL(12,2) DEFAULT 0.00 COMMENT '退货金额',
     `return_profit` DECIMAL(12,2) DEFAULT 0.00 COMMENT '退货利润',
     `remark` VARCHAR(500) DEFAULT NULL COMMENT '备注',
@@ -315,8 +333,10 @@ CREATE TABLE `order_items` (
     `sku_id` BIGINT DEFAULT NULL COMMENT 'SKU ID',
     `product_name` VARCHAR(100) DEFAULT NULL COMMENT '商品名称',
     `sku_name` VARCHAR(100) DEFAULT NULL COMMENT 'SKU名称',
+    `sku_code` VARCHAR(50) DEFAULT NULL COMMENT 'SKU编码',
     `category_id` BIGINT DEFAULT NULL COMMENT '品类ID',
     `quantity` INT DEFAULT 1 COMMENT '数量',
+    `item_status` TINYINT DEFAULT 0 COMMENT '商品状态(0-正常,1-新增,2-移除)',
     `list_price` DECIMAL(12,2) DEFAULT 0.00 COMMENT '标价',
     `sale_price` DECIMAL(12,2) DEFAULT 0.00 COMMENT '售价',
     `discount_rate` DECIMAL(5,4) DEFAULT 1.0000 COMMENT '折扣率',
@@ -361,7 +381,9 @@ CREATE TABLE `payments` (
     `payment_date` DATE DEFAULT NULL COMMENT '回款日期',
     `payment_method` TINYINT DEFAULT 1 COMMENT '回款方式(1-银行转账,2-现金,3-微信,4-支付宝)',
     `status` TINYINT DEFAULT 0 COMMENT '状态(0-待审核,1-已审核,2-已驳回)',
+    `payment_type` TINYINT DEFAULT 0 COMMENT '回款类型(0-普通回款,1-订金,2-尾款)',
     `remark` VARCHAR(500) DEFAULT NULL COMMENT '备注',
+    `voucher_url` VARCHAR(500) DEFAULT NULL COMMENT '付款凭证图片URL',
     `created_by` BIGINT DEFAULT NULL COMMENT '创建人ID',
     `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     `audited_by` BIGINT DEFAULT NULL COMMENT '审核人ID',
@@ -514,6 +536,7 @@ CREATE TABLE `salary_items` (
     `item_name` VARCHAR(50) DEFAULT NULL COMMENT '项目名称',
     `amount` DECIMAL(12,2) DEFAULT 0.00 COMMENT '金额',
     `remark` VARCHAR(500) DEFAULT NULL COMMENT '备注',
+    `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
     `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     PRIMARY KEY (`id`),
     KEY `idx_salary_record_id` (`salary_record_id`),
@@ -536,11 +559,13 @@ CREATE TABLE `gifts` (
     `status` TINYINT DEFAULT 1 COMMENT '状态(0-禁用,1-启用)',
     `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    `deleted_at` datetime(3) DEFAULT NULL COMMENT '删除时间',
     `created_by` BIGINT DEFAULT NULL COMMENT '创建人ID',
     PRIMARY KEY (`id`),
     UNIQUE KEY `uk_gift_code` (`gift_code`),
     KEY `idx_store_id` (`store_id`),
-    KEY `idx_status` (`status`)
+    KEY `idx_status` (`status`),
+    KEY `idx_gifts_deleted_at` (`deleted_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='礼品表';
 
 -- ============================================================
@@ -620,9 +645,13 @@ CREATE TABLE `customers` (
     `last_order_at` DATETIME DEFAULT NULL COMMENT '最后下单时间',
     `remark` VARCHAR(500) DEFAULT NULL COMMENT '备注',
     `status` TINYINT DEFAULT 1 COMMENT '状态(0-禁用,1-启用)',
+    `salesman_id` BIGINT DEFAULT NULL COMMENT '业务员ID',
+    `original_phone` VARCHAR(20) DEFAULT NULL COMMENT '原手机号',
+    `source_type` TINYINT DEFAULT 0 COMMENT '客户来源(0-自然进店,1-主动邀约,2-同行带单)',
     `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
     `created_by` BIGINT DEFAULT NULL COMMENT '创建人ID',
+    `deleted_at` datetime(3) DEFAULT NULL,
     PRIMARY KEY (`id`),
     UNIQUE KEY `uk_store_customer_code` (`store_id`, `customer_code`),
     UNIQUE KEY `uk_store_phone` (`store_id`, `phone`),
@@ -768,11 +797,13 @@ CREATE TABLE `warehouses` (
     `status` TINYINT DEFAULT 1 COMMENT '状态(0-禁用,1-启用)',
     `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    `deleted_at` datetime(3) DEFAULT NULL COMMENT '删除时间',
     PRIMARY KEY (`id`),
     UNIQUE KEY `uk_warehouse_code` (`warehouse_code`),
     KEY `idx_store_id` (`store_id`),
     KEY `idx_warehouse_type` (`warehouse_type`),
-    KEY `idx_status` (`status`)
+    KEY `idx_status` (`status`),
+    KEY `idx_warehouses_deleted_at` (`deleted_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='仓库表';
 
 -- ============================================================
@@ -786,6 +817,8 @@ CREATE TABLE `warehouse_stocks` (
     `stock_quantity` INT DEFAULT 0 COMMENT '库存数量',
     `available_quantity` INT DEFAULT 0 COMMENT '可用数量',
     `locked_quantity` INT DEFAULT 0 COMMENT '锁定数量',
+    `in_transit_quantity` INT DEFAULT 0 COMMENT '在途采购库存',
+    `pending_quantity` INT DEFAULT 0 COMMENT '待分配库存',
     `warning_stock` INT DEFAULT 10 COMMENT '预警库存',
     `version` INT DEFAULT 0 COMMENT '乐观锁版本号',
     `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
@@ -805,6 +838,8 @@ CREATE TABLE `warehouse_gift_stocks` (
     `stock_quantity` INT DEFAULT 0 COMMENT '库存数量',
     `available_quantity` INT DEFAULT 0 COMMENT '可用数量',
     `locked_quantity` INT DEFAULT 0 COMMENT '锁定数量',
+    `in_transit_quantity` INT DEFAULT 0 COMMENT '在途采购库存',
+    `pending_quantity` INT DEFAULT 0 COMMENT '待分配库存',
     `warning_stock` INT DEFAULT 10 COMMENT '预警库存',
     `version` INT DEFAULT 0 COMMENT '乐观锁版本号',
     `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
@@ -824,11 +859,14 @@ CREATE TABLE `roles` (
     `role_type` TINYINT DEFAULT 1 COMMENT '角色类型(1-系统预设,2-自定义)',
     `description` VARCHAR(255) DEFAULT NULL COMMENT '描述',
     `status` TINYINT DEFAULT 1 COMMENT '状态(0-禁用,1-启用)',
+    `sort_order` INT DEFAULT 0 COMMENT '排序',
     `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    `deleted_at` datetime(3) DEFAULT NULL COMMENT '删除时间',
     PRIMARY KEY (`id`),
     UNIQUE KEY `uk_role_code` (`role_code`),
-    KEY `idx_status` (`status`)
+    KEY `idx_status` (`status`),
+    KEY `idx_roles_deleted_at` (`deleted_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='角色表';
 
 -- ============================================================
@@ -846,6 +884,7 @@ CREATE TABLE `permissions` (
     `sort_order` INT DEFAULT 0 COMMENT '排序',
     `status` TINYINT DEFAULT 1 COMMENT '状态(0-禁用,1-启用)',
     `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
     PRIMARY KEY (`id`),
     UNIQUE KEY `uk_permission_code` (`permission_code`),
     KEY `idx_parent_id` (`parent_id`),
@@ -892,6 +931,7 @@ CREATE TABLE `system_configs` (
     `config_value` TEXT DEFAULT NULL COMMENT '配置值',
     `config_type` VARCHAR(50) DEFAULT NULL COMMENT '配置类型',
     `remark` VARCHAR(255) DEFAULT NULL COMMENT '备注',
+    `sort` INT DEFAULT 0 COMMENT '排序',
     `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
     `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
     PRIMARY KEY (`id`),
@@ -948,3 +988,234 @@ CREATE TABLE `stock_alerts` (
     KEY `idx_alert_status` (`alert_status`),
     KEY `idx_created_at` (`created_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='库存预警记录表';
+
+-- ============================================================
+-- 表39: order_returns - 订单退货记录表
+-- ============================================================
+DROP TABLE IF EXISTS `order_returns`;
+CREATE TABLE `order_returns` (
+    `id` BIGINT NOT NULL AUTO_INCREMENT,
+    `store_id` BIGINT NOT NULL COMMENT '门店ID',
+    `order_id` BIGINT NOT NULL COMMENT '订单ID',
+    `return_no` VARCHAR(32) NOT NULL COMMENT '退货单号',
+    `return_amount` DECIMAL(12,2) DEFAULT 0.00 COMMENT '退货金额',
+    `return_profit` DECIMAL(12,2) DEFAULT 0.00 COMMENT '利润冲减',
+    `reason` VARCHAR(500) COMMENT '退货原因',
+    `operator_id` BIGINT COMMENT '操作人ID',
+    `operator_name` VARCHAR(50) COMMENT '操作人姓名',
+    `return_time` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '退货时间',
+    `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_return_no` (`return_no`),
+    KEY `idx_order_id` (`order_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='订单退货记录表';
+
+-- ============================================================
+-- 表40: delivery_records - 送货记录表
+-- ============================================================
+DROP TABLE IF EXISTS `delivery_records`;
+CREATE TABLE `delivery_records` (
+    `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+    `store_id` BIGINT NOT NULL COMMENT '门店ID',
+    `order_id` BIGINT NOT NULL COMMENT '订单ID',
+    `order_no` VARCHAR(50) NOT NULL COMMENT '订单编号',
+    `delivery_no` VARCHAR(50) NOT NULL COMMENT '送货单号',
+    `warehouse_id` BIGINT NOT NULL COMMENT '仓库ID',
+    `operator_id` BIGINT NOT NULL COMMENT '操作人ID',
+    `operator_name` VARCHAR(50) DEFAULT NULL COMMENT '操作人姓名',
+    `delivery_time` DATETIME NOT NULL COMMENT '送货时间',
+    `delivery_type` TINYINT DEFAULT 1 COMMENT '送货类型(1-自送,2-物流,3-快递)',
+    `logistics_no` VARCHAR(100) DEFAULT NULL COMMENT '物流单号',
+    `receiver_name` VARCHAR(50) DEFAULT NULL COMMENT '收件人姓名',
+    `receiver_phone` VARCHAR(20) DEFAULT NULL COMMENT '收件人电话',
+    `receiver_address` VARCHAR(255) DEFAULT NULL COMMENT '收件人地址',
+    `remark` VARCHAR(500) DEFAULT NULL COMMENT '备注',
+    `total_quantity` INT DEFAULT 0 COMMENT '送货总数量',
+    `total_amount` DECIMAL(12,2) DEFAULT 0.00 COMMENT '总金额',
+    `status` TINYINT DEFAULT 1 COMMENT '状态(0-作废,1-正常)',
+    `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_delivery_no` (`delivery_no`),
+    KEY `idx_order_id` (`order_id`),
+    KEY `idx_store_id` (`store_id`),
+    KEY `idx_warehouse_id` (`warehouse_id`),
+    KEY `idx_operator_id` (`operator_id`),
+    KEY `idx_delivery_time` (`delivery_time`),
+    KEY `idx_created_at` (`created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='送货记录表';
+
+-- ============================================================
+-- 表41: delivery_items - 送货明细表
+-- ============================================================
+DROP TABLE IF EXISTS `delivery_items`;
+CREATE TABLE `delivery_items` (
+    `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+    `delivery_id` BIGINT NOT NULL COMMENT '送货记录ID',
+    `order_item_id` BIGINT NOT NULL COMMENT '订单商品ID',
+    `sku_id` BIGINT NOT NULL COMMENT 'SKU ID',
+    `product_name` VARCHAR(200) DEFAULT NULL COMMENT '商品名称',
+    `sku_name` VARCHAR(200) DEFAULT NULL COMMENT 'SKU名称',
+    `quantity` INT NOT NULL COMMENT '送货数量',
+    `batch_id` BIGINT DEFAULT NULL COMMENT '批次ID',
+    `unit_cost` DECIMAL(12,2) DEFAULT 0.00 COMMENT '单位成本',
+    `total_cost` DECIMAL(12,2) DEFAULT 0.00 COMMENT '总成本',
+    `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    PRIMARY KEY (`id`),
+    KEY `idx_delivery_id` (`delivery_id`),
+    KEY `idx_order_item_id` (`order_item_id`),
+    KEY `idx_sku_id` (`sku_id`),
+    KEY `idx_batch_id` (`batch_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='送货明细表';
+
+-- ============================================================
+-- 表42: stock_queues - 缺货排队表
+-- ============================================================
+DROP TABLE IF EXISTS `stock_queues`;
+CREATE TABLE `stock_queues` (
+    `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+    `order_id` BIGINT NOT NULL COMMENT '订单ID',
+    `order_item_id` BIGINT NOT NULL COMMENT '订单商品ID',
+    `sku_id` BIGINT NOT NULL COMMENT 'SKU ID',
+    `quantity` INT NOT NULL COMMENT '需求数量',
+    `allocated_qty` INT DEFAULT 0 COMMENT '已分配数量',
+    `status` TINYINT DEFAULT 0 COMMENT '状态(0-排队中,1-部分分配,2-全部分配)',
+    `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    PRIMARY KEY (`id`),
+    KEY `idx_order_id` (`order_id`),
+    KEY `idx_sku_created` (`sku_id`, `created_at`),
+    KEY `idx_status` (`status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='缺货排队表';
+
+-- ============================================================
+-- 表43: stocktakes - 盘点表
+-- ============================================================
+DROP TABLE IF EXISTS `stocktakes`;
+CREATE TABLE `stocktakes` (
+    `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+    `store_id` BIGINT DEFAULT 1 COMMENT '所属门店ID',
+    `warehouse_id` BIGINT NOT NULL COMMENT '仓库ID',
+    `stocktake_type` TINYINT DEFAULT 0 COMMENT '盘点类型(0-商品,1-礼品)',
+    `stocktake_no` VARCHAR(32) DEFAULT NULL COMMENT '盘点单号',
+    `status` TINYINT DEFAULT 0 COMMENT '状态(0-盘点中,1-已提交,2-已审核)',
+    `total_items` INT DEFAULT 0 COMMENT '盘点商品数',
+    `profit_items` INT DEFAULT 0 COMMENT '盘盈数量',
+    `loss_items` INT DEFAULT 0 COMMENT '盘亏数量',
+    `remark` VARCHAR(500) DEFAULT NULL COMMENT '备注',
+    `created_by` BIGINT DEFAULT NULL COMMENT '操作人ID',
+    `approved_by` BIGINT DEFAULT NULL COMMENT '审核人ID',
+    `approved_at` DATETIME DEFAULT NULL COMMENT '审核时间',
+    `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    `deleted_at` datetime(3) DEFAULT NULL COMMENT '删除时间',
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_stocktake_no` (`stocktake_no`),
+    KEY `idx_store_id` (`store_id`),
+    KEY `idx_warehouse_id` (`warehouse_id`),
+    KEY `idx_status` (`status`),
+    KEY `idx_created_at` (`created_at`),
+    KEY `idx_stocktakes_deleted_at` (`deleted_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='盘点表';
+
+-- ============================================================
+-- 表44: stocktake_items - 盘点明细表
+-- ============================================================
+DROP TABLE IF EXISTS `stocktake_items`;
+CREATE TABLE `stocktake_items` (
+    `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+    `stocktake_id` BIGINT NOT NULL COMMENT '盘点ID',
+    `stocktake_type` TINYINT DEFAULT 0 COMMENT '盘点类型(0-商品,1-礼品)',
+    `sku_id` BIGINT DEFAULT NULL COMMENT 'SKU ID(商品盘点)',
+    `gift_id` BIGINT DEFAULT NULL COMMENT '礼品ID(礼品盘点)',
+    `item_name` VARCHAR(100) DEFAULT NULL COMMENT '商品/礼品名称',
+    `system_stock` INT DEFAULT 0 COMMENT '系统库存数量',
+    `actual_stock` INT DEFAULT 0 COMMENT '实际盘点数量',
+    `diff_quantity` INT DEFAULT 0 COMMENT '差异数量',
+    `unit_cost` DECIMAL(12,2) DEFAULT 0.00 COMMENT '单位成本',
+    `total_cost` DECIMAL(12,2) DEFAULT 0.00 COMMENT '差异金额',
+    `remark` VARCHAR(255) DEFAULT NULL COMMENT '备注',
+    `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    `deleted_at` datetime(3) DEFAULT NULL COMMENT '删除时间',
+    PRIMARY KEY (`id`),
+    KEY `idx_stocktake_id` (`stocktake_id`),
+    KEY `idx_sku_id` (`sku_id`),
+    KEY `idx_gift_id` (`gift_id`),
+    KEY `idx_stocktake_items_deleted_at` (`deleted_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='盘点明细表';
+
+-- ============================================================
+-- 表45: follow_up_approvals - 跟进审批表
+-- ============================================================
+DROP TABLE IF EXISTS `follow_up_approvals`;
+CREATE TABLE `follow_up_approvals` (
+    `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+    `store_id` BIGINT NOT NULL COMMENT '门店ID',
+    `customer_id` BIGINT NOT NULL COMMENT '客户ID',
+    `order_id` BIGINT DEFAULT NULL COMMENT '关联订单ID',
+    `applicant_id` BIGINT NOT NULL COMMENT '申请人ID',
+    `approver_id` BIGINT DEFAULT NULL COMMENT '审批人ID',
+    `approval_type` TINYINT DEFAULT 1 COMMENT '审批类型(1-跟进转交审批,2-送货单打印审批)',
+    `status` TINYINT DEFAULT 0 COMMENT '审批状态(0-待审批,1-已通过,2-已拒绝)',
+    `remark` VARCHAR(255) DEFAULT NULL COMMENT '审批备注',
+    `reject_reason` VARCHAR(255) DEFAULT NULL COMMENT '驳回原因',
+    `approved_at` DATETIME DEFAULT NULL COMMENT '审批时间',
+    `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    PRIMARY KEY (`id`),
+    KEY `idx_store_id` (`store_id`),
+    KEY `idx_customer_id` (`customer_id`),
+    KEY `idx_order_id` (`order_id`),
+    KEY `idx_approver_id` (`approver_id`),
+    KEY `idx_status` (`status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='跟进审批表';
+
+-- ============================================================
+-- 表46: api_app_versions - APP版本表
+-- ============================================================
+DROP TABLE IF EXISTS `api_app_versions`;
+CREATE TABLE `api_app_versions` (
+    `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+    `platform` VARCHAR(20) NOT NULL COMMENT '平台: ios, android',
+    `version_code` varchar(32) NOT NULL COMMENT '版本号(如: 1.0.0)',
+    `version_name` VARCHAR(64) NOT NULL COMMENT '版本名称',
+    `download_url` VARCHAR(500) NOT NULL COMMENT '安装包下载地址',
+    `file_size` BIGINT DEFAULT 0 COMMENT '文件大小(字节)',
+    `update_type` TINYINT DEFAULT 0 COMMENT '更新类型: 0-整包更新, 1-热更新',
+    `is_force_update` TINYINT DEFAULT 0 COMMENT '是否强制更新: 0-否, 1-是',
+    `min_version` VARCHAR(32) DEFAULT '' COMMENT '最低支持版本',
+    `update_content` TEXT DEFAULT NULL COMMENT '更新内容',
+    `status` TINYINT DEFAULT 1 COMMENT '状态: 0-禁用, 1-启用',
+    `published_at` DATETIME DEFAULT NULL COMMENT '发布时间',
+    `created_by` BIGINT DEFAULT NULL COMMENT '创建人ID',
+    `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    `deleted_at` datetime(3) DEFAULT NULL COMMENT '删除时间',
+    PRIMARY KEY (`id`),
+    KEY `idx_platform` (`platform`),
+    KEY `idx_version_code` (`version_code`),
+    KEY `idx_status` (`status`),
+    KEY `idx_api_app_versions_deleted_at` (`deleted_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='APP版本表';
+
+-- ============================================================
+-- 表47: system_backups - 系统备份表
+-- ============================================================
+DROP TABLE IF EXISTS `system_backups`;
+CREATE TABLE `system_backups` (
+    `id` BIGINT NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+    `store_id` BIGINT DEFAULT NULL COMMENT '门店ID',
+    `file_name` VARCHAR(255) NOT NULL COMMENT '备份文件名',
+    `file_path` VARCHAR(500) NOT NULL COMMENT '备份文件路径',
+    `file_size` BIGINT DEFAULT 0 COMMENT '文件大小(字节)',
+    `backup_type` TINYINT DEFAULT 0 COMMENT '备份类型(0-手动,1-自动)',
+    `status` TINYINT DEFAULT 0 COMMENT '状态(0-进行中,1-成功,2-失败)',
+    `remark` VARCHAR(500) DEFAULT NULL COMMENT '备注',
+    `created_at` DATETIME DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+    `updated_at` DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+    PRIMARY KEY (`id`),
+    KEY `idx_store_id` (`store_id`),
+    KEY `idx_status` (`status`),
+    KEY `idx_created_at` (`created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='系统备份表';

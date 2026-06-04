@@ -12,6 +12,7 @@ type Role struct {
 	RoleCode	string	`gorm:"column:role_code;type:varchar(50);uniqueIndex;not null" json:"role_code" example:"admin"`
 	RoleName	string	`gorm:"column:role_name;type:varchar(50);not null" json:"role_name" example:"管理员"`
 	RoleType	int8	`gorm:"column:role_type;default:1" json:"role_type" example:"1"`
+	SortOrder	int	`gorm:"column:sort_order;default:0" json:"sort_order" example:"1"`
 	Description	string	`gorm:"column:description;type:varchar(255)" json:"description" example:"高端智能手机，性能卓越"`
 	Status	int8	`gorm:"column:status;default:1;not null" json:"status" example:"1"`
 	CreatedAt	time.Time	`json:"created_at" example:"2025-01-15T00:00:00+08:00"`

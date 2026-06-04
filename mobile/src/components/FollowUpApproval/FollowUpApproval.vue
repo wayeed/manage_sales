@@ -342,6 +342,10 @@ export default {
   border-radius: 16rpx;
   font-size: 30rpx;
   font-weight: 500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
 
   &--cancel {
     background: #f5f5f5;

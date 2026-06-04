@@ -75,7 +75,10 @@
 
             <!-- 商品信息 -->
             <view class="ps-item-body">
-              <text class="ps-item-name">{{ item.sku_name || item.product?.product_name || '未命名' }}</text>
+              <view class="ps-item-name-row" @tap.stop="toggleExpand(item)">
+                <text class="ps-item-name" :class="{ 'ps-item-name--expanded': item._expanded }">{{ item.sku_name || item.product?.product_name || '未命名' }}</text>
+                <text class="ps-item-expand-icon" :class="{ 'ps-item-expand-icon--up': item._expanded }">▾</text>
+              </view>
               <view class="ps-item-meta">
                 <text class="ps-item-sku">{{ item.sku_code }}</text>
                 <text v-if="item.barcode" class="ps-item-barcode">{{ item.barcode }}</text>
@@ -186,8 +189,6 @@ export default {
           page_size: pageSize
         })
         let data = res.data?.list || res.data || []
-        // 过滤无库存商品
-        data = data.filter(item => (item.available_stock || 0) > 0)
         if (page.value === 1) {
           list.value = data
         } else {
@@ -228,6 +229,10 @@ export default {
       selectedProduct.value = item
     }
 
+    const toggleExpand = (item) => {
+      item._expanded = !item._expanded
+    }
+
     const close = () => {
       emit('close')
     }
@@ -248,6 +253,7 @@ export default {
       loadMore,
       selectProduct,
       isDisabled,
+      toggleExpand,
       close,
       confirm
     }
@@ -495,7 +501,35 @@ export default {
   text-overflow: ellipsis;
   white-space: nowrap;
   display: block;
+  flex: 1;
+  min-width: 0;
+
+  &--expanded {
+    white-space: normal;
+    text-overflow: clip;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+  }
+}
+
+.ps-item-name-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8rpx;
   margin-bottom: 8rpx;
+}
+
+.ps-item-expand-icon {
+  font-size: 24rpx;
+  color: #bbb;
+  flex-shrink: 0;
+  margin-top: 6rpx;
+  transition: transform 0.2s;
+
+  &--up {
+    transform: rotate(180deg);
+  }
 }
 
 .ps-item-meta {
@@ -639,7 +673,6 @@ export default {
 .ps-btn {
   flex-shrink: 0;
   height: 88rpx;
-  line-height: 88rpx;
   padding: 0 56rpx;
   border-radius: 16rpx;
   font-size: 30rpx;
@@ -647,6 +680,10 @@ export default {
   background: #1890ff;
   color: #fff;
   letter-spacing: 1rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
 
   &--off {
     opacity: 0.35;

@@ -2,6 +2,7 @@ package service
 
 import (
 	"errors"
+	"fmt"
 	"time"
 
 	"furniture-commission/internal/models"
@@ -15,10 +16,10 @@ import (
 
 // PaymentService 回款服务
 type PaymentService struct {
-	db               *gorm.DB
-	paymentRepo      *repository.PaymentRepository
-	orderRepo        *repository.OrderRepository
-	commissionSvc    *CommissionService
+	db            *gorm.DB
+	paymentRepo   *repository.PaymentRepository
+	orderRepo     *repository.OrderRepository
+	commissionSvc *CommissionService
 }
 
 // NewPaymentService 创建回款服务实例
@@ -33,25 +34,26 @@ func NewPaymentService(db *gorm.DB, paymentRepo *repository.PaymentRepository, o
 
 // CreatePaymentRequest 创建回款请求
 type CreatePaymentRequest struct {
-	OrderID int64 `json:"order_id" binding:"required" example:1`
-	Amount string `json:"amount" binding:"required" example:"8500.00"`
-	PaymentDate string `json:"payment_date" example:"2024-01-20"`
-	PaymentMethod int8 `json:"payment_method" example:1`
-	Remark string `json:"remark" example:"客户银行转账"`
+	OrderID       int64  `json:"order_id" binding:"required" example:1`
+	Amount        string `json:"amount" binding:"required" example:"8500.00"`
+	PaymentDate   string `json:"payment_date" example:"2024-01-20"`
+	PaymentMethod int8   `json:"payment_method" example:1`
+	Remark        string `json:"remark" example:"客户银行转账"`
+	VoucherURL    string `json:"voucher_url" example:"/uploads/images/2025/01/15/xxx.jpg"`
 }
 
 // ListPaymentRequest 回款列表查询请求
 type ListPaymentRequest struct {
-	OrderID string `form:"order_id" example:"1"`
-	Status string `form:"status" example:"0"`
+	OrderID   string `form:"order_id" example:"1"`
+	Status    string `form:"status" example:"0"`
 	StartDate string `form:"start_date" example:"2024-01-01"`
-	EndDate string `form:"end_date" example:"2024-12-31"`
-	Page int `form:"page" example:1`
-	PageSize int `form:"page_size" example:10`
+	EndDate   string `form:"end_date" example:"2024-12-31"`
+	Page      int    `form:"page" example:1`
+	PageSize  int    `form:"page_size" example:10`
 }
 
 // CreatePayment 录入回款
-func (s *PaymentService) CreatePayment(req *CreatePaymentRequest, createdBy int64) error {
+func (s *PaymentService) CreatePayment(req *CreatePaymentRequest, createdBy int64, roleCodes []string) error {
 	// 1. 验证订单存在且已生效(order_status=1)
 	order, err := s.orderRepo.FindByID(req.OrderID)
 	if err != nil {
@@ -65,12 +67,35 @@ func (s *PaymentService) CreatePayment(req *CreatePaymentRequest, createdBy int6
 		return &AppError{Code: apperrors.ErrInvalidOrderStatus, Message: "只有已生效的订单才能录入回款"}
 	}
 
+	// 2. 验证权限：业务员只能为自己的订单录入，财务可为任何订单录入
+	isFinance := false
+	for _, role := range roleCodes {
+		if role == "FINANCE" {
+			isFinance = true
+			break
+		}
+	}
+	if !isFinance && order.SalesmanID != createdBy {
+		return &AppError{Code: apperrors.Forbidden, Message: "只能为自己的订单录入回款"}
+	}
+
 	amount, err := decimal.NewFromString(req.Amount)
 	if err != nil {
 		return &AppError{Code: apperrors.BadRequest, Message: "回款金额格式错误"}
 	}
 	if amount.LessThanOrEqual(decimal.Zero) {
 		return &AppError{Code: apperrors.BadRequest, Message: "回款金额必须大于0"}
+	}
+
+	// 检查已录入回款总额（含未审核）是否已达到订单成交价
+	var totalPaid decimal.Decimal
+	s.db.Model(&models.Payment{}).
+		Where("order_id = ? AND status != 2", req.OrderID). // 排除已驳回的
+		Select("COALESCE(SUM(amount), 0)").
+		Scan(&totalPaid)
+
+	if totalPaid.Add(amount).GreaterThan(order.FinalAmount) {
+		return &AppError{Code: apperrors.BadRequest, Message: fmt.Sprintf("回款总额将超过订单成交价(%s)，当前已录入%s", order.FinalAmount.String(), totalPaid.String())}
 	}
 
 	// 2. 创建回款记录
@@ -96,6 +121,7 @@ func (s *PaymentService) CreatePayment(req *CreatePaymentRequest, createdBy int6
 		PaymentMethod: req.PaymentMethod,
 		Status:        0, // 待审核
 		Remark:        req.Remark,
+		VoucherURL:    req.VoucherURL,
 		CreatedBy:     &createdBy,
 	}
 
@@ -117,7 +143,7 @@ func (s *PaymentService) CreatePayment(req *CreatePaymentRequest, createdBy int6
 }
 
 // ApprovePayment 审核回款
-func (s *PaymentService) ApprovePayment(paymentID int64, approvedBy int64, approved bool) error {
+func (s *PaymentService) ApprovePayment(paymentID int64, approvedBy int64, approved bool, rejectReason string) error {
 	payment, err := s.paymentRepo.FindByID(paymentID)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -170,34 +196,38 @@ func (s *PaymentService) ApprovePayment(paymentID int64, approvedBy int64, appro
 			}
 
 			if err := tx.Model(&models.Order{}).Where("id = ?", payment.OrderID).Updates(map[string]interface{}{
-			"payment_status":  paymentStatus,
-			"remaining_amount": remainingAmount,
-		}).Error; err != nil {
-			return &AppError{Code: apperrors.InternalError, Message: "更新订单回款状态失败"}
-		}
+				"payment_status":   paymentStatus,
+				"remaining_amount": remainingAmount,
+			}).Error; err != nil {
+				return &AppError{Code: apperrors.InternalError, Message: "更新订单回款状态失败"}
+			}
 
-		// 如果回款完成，异步计算提成
-		if paymentStatus == 2 {
-			go func(orderID int64) {
-				if err := s.commissionSvc.CalculateOrderCommission(orderID); err != nil {
-					// 记录错误但不影响回款审核结果
-					// 实际项目中应该使用日志记录或使用消息队列重试
-					_ = err
-				}
-			}(payment.OrderID)
-		}
+			// 如果回款完成，异步计算提成
+			if paymentStatus == 2 {
+				go func(orderID int64) {
+					if err := s.commissionSvc.CalculateOrderCommission(orderID); err != nil {
+						// 记录错误但不影响回款审核结果
+						// 实际项目中应该使用日志记录或使用消息队列重试
+						_ = err
+					}
+				}(payment.OrderID)
+			}
 
-		return nil
+			return nil
 		})
 	} else {
 		// 审核驳回
 		now := time.Now()
 		err = s.db.Transaction(func(tx *gorm.DB) error {
-			if err := tx.Model(payment).Updates(map[string]interface{}{
+			updates := map[string]interface{}{
 				"status":     2, // 已驳回
 				"audited_by": approvedBy,
 				"audited_at": now,
-			}).Error; err != nil {
+			}
+			if rejectReason != "" {
+				updates["reject_reason"] = rejectReason
+			}
+			if err := tx.Model(payment).Updates(updates).Error; err != nil {
 				return &AppError{Code: apperrors.InternalError, Message: "更新回款状态失败"}
 			}
 			return nil

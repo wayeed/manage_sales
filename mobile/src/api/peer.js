@@ -1,4 +1,4 @@
-import { get } from './request'
+import { get, post } from './request'
 
 /**
  * 获取同行列表
@@ -11,3 +11,9 @@ export const getPeerList = (params) => get('/peers', params)
  * @param {number} id - 同行ID
  */
 export const getPeerDetail = (id) => get(`/peers/${id}`)
+
+/**
+ * 创建同行
+ * @param {Object} data - { peer_name, phone }
+ */
+export const createPeer = (data) => post('/peers', data)

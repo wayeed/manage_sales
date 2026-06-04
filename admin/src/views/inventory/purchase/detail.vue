@@ -60,21 +60,28 @@
         <!-- 操作按钮 -->
         <div class="action-bar">
           <el-button
-            v-if="detail.status === 0"
+            v-if="Number(detail.status) === 0 || Number(detail.status) === 1"
+            type="primary"
+            @click="handleEdit"
+          >
+            编辑采购单
+          </el-button>
+          <el-button
+            v-if="Number(detail.status) === 0"
             type="success"
             @click="handleApprove"
           >
             审核通过
           </el-button>
           <el-button
-            v-if="detail.status === 1"
+            v-if="Number(detail.status) === 1"
             type="warning"
             @click="handleReceipt"
           >
             确认入库
           </el-button>
           <el-button
-            v-if="detail.status === 0"
+            v-if="Number(detail.status) === 0"
             type="danger"
             @click="handleCancel"
           >
@@ -83,11 +90,32 @@
         </div>
       </template>
     </el-card>
+
+    <!-- 入库确认弹窗 -->
+    <el-dialog v-dialog-drag v-model="receiptDialogVisible" title="确认入库" width="500px" destroy-on-close>
+      <el-form ref="receiptFormRef" :model="receiptForm" :rules="receiptRules" label-width="100px">
+        <el-form-item label="采购单号">
+          <span>{{ detail?.purchase_no }}</span>
+        </el-form-item>
+        <el-form-item label="入库仓库" prop="warehouse_id">
+          <el-select v-model="receiptForm.warehouse_id" placeholder="请选择入库仓库" style="width: 100%">
+            <el-option v-for="item in warehouseOptions" :key="item.id" :label="item.warehouse_name" :value="item.id" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="备注">
+          <el-input v-model="receiptForm.remark" type="textarea" :rows="2" placeholder="入库备注" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="receiptDialogVisible = false">取消</el-button>
+        <el-button type="primary" :loading="receiptLoading" @click="handleReceiptSubmit">确认入库</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
@@ -96,12 +124,26 @@ import {
   confirmReceipt,
   cancelPurchase,
 } from '@/api/purchase'
+import { getWarehouseList } from '@/api/warehouse'
 
 const router = useRouter()
 const route = useRoute()
 
 const loading = ref(false)
 const detail = ref(null)
+const warehouseOptions = ref([])
+
+// 入库弹窗相关
+const receiptDialogVisible = ref(false)
+const receiptLoading = ref(false)
+const receiptFormRef = ref(null)
+const receiptForm = reactive({
+  warehouse_id: '',
+  remark: '',
+})
+const receiptRules = {
+  warehouse_id: [{ required: true, message: '请选择入库仓库', trigger: 'change' }],
+}
 
 const fetchDetail = async () => {
   loading.value = true
@@ -135,6 +177,10 @@ const handleBack = () => {
   router.push('/inventory/purchase')
 }
 
+const handleEdit = () => {
+  router.push(`/inventory/purchase?mode=edit&id=${detail.value.id}`)
+}
+
 const handleApprove = async () => {
   try {
     await ElMessageBox.confirm('确定要审核通过该采购单吗？', '审核确认', {
@@ -152,20 +198,41 @@ const handleApprove = async () => {
   }
 }
 
-const handleReceipt = async () => {
+const fetchWarehouseOptions = async () => {
   try {
-    await ElMessageBox.confirm('确定要确认入库该采购单吗？', '入库确认', {
-      confirmButtonText: '确认入库',
-      cancelButtonText: '取消',
-      type: 'warning',
+    const res = await getWarehouseList()
+    warehouseOptions.value = res.data?.list || res.data || []
+  } catch (error) {
+    console.error('获取仓库列表失败:', error)
+  }
+}
+
+const handleReceipt = () => {
+  receiptForm.warehouse_id = ''
+  receiptForm.remark = ''
+  if (warehouseOptions.value.length === 0) {
+    fetchWarehouseOptions()
+  }
+  receiptDialogVisible.value = true
+}
+
+const handleReceiptSubmit = async () => {
+  const valid = await receiptFormRef.value?.validate().catch(() => false)
+  if (!valid) return
+
+  receiptLoading.value = true
+  try {
+    await confirmReceipt(detail.value.id, {
+      warehouse_id: receiptForm.warehouse_id,
+      remark: receiptForm.remark,
     })
-    await confirmReceipt(detail.value.id)
     ElMessage.success('入库成功')
+    receiptDialogVisible.value = false
     fetchDetail()
   } catch (error) {
-    if (error !== 'cancel') {
-      console.error('入库失败:', error)
-    }
+    console.error('入库失败:', error)
+  } finally {
+    receiptLoading.value = false
   }
 }
 

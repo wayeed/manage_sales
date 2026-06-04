@@ -10,14 +10,20 @@
             <el-option label="商品排行" value="product" />
           </el-select>
         </el-col>
-        <el-col :span="8">
+        <el-col :span="5">
+          <el-select v-model="periodType" style="width: 100%" @change="handleSearch">
+            <el-option label="月度" value="month" />
+            <el-option label="季度" value="quarter" />
+            <el-option label="年度" value="year" />
+          </el-select>
+        </el-col>
+        <el-col :span="5">
           <el-date-picker
-            v-model="dateRange"
-            type="daterange"
-            range-separator="至"
-            start-placeholder="开始日期"
-            end-placeholder="结束日期"
-            value-format="YYYY-MM-DD"
+            v-model="periodValue"
+            :type="periodType === 'month' ? 'month' : periodType === 'quarter' ? 'month' : 'year'"
+            placeholder="选择周期"
+            :format="periodType === 'month' ? 'YYYY-MM' : periodType === 'quarter' ? 'YYYY-MM' : 'YYYY'"
+            :value-format="periodType === 'month' ? 'YYYY-MM' : periodType === 'quarter' ? 'YYYY-MM' : 'YYYY'"
             style="width: 100%"
             @change="handleSearch"
           />
@@ -96,18 +102,13 @@ import { formatCurrency, formatPercent } from '@/utils/format'
 import BarChart from '@/components/Charts/BarChart.vue'
 
 // ==================== 筛选条件 ====================
-// 初始化默认日期范围为最近30天
-const getDefaultDateRange = () => {
-  const end = new Date()
-  const start = new Date()
-  start.setDate(start.getDate() - 30)
-  return [
-    start.toISOString().split('T')[0],
-    end.toISOString().split('T')[0],
-  ]
-}
 const rankDimension = ref('salesman')
-const dateRange = ref(getDefaultDateRange())
+const periodType = ref('month')
+const getDefaultPeriodValue = () => {
+  const now = new Date()
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+}
+const periodValue = ref(getDefaultPeriodValue())
 const loading = ref(false)
 
 const dimensionLabel = computed(() => {
@@ -120,8 +121,9 @@ const handleSearch = () => {
 }
 
 const handleReset = () => {
-  dateRange.value = getDefaultDateRange()
   rankDimension.value = 'salesman'
+  periodType.value = 'month'
+  periodValue.value = getDefaultPeriodValue()
   handleSearch()
 }
 
@@ -133,14 +135,21 @@ const chartSeriesData = ref([])
 const fetchRankingData = async () => {
   loading.value = true
   try {
-    const params = { dimension: rankDimension.value }
-    if (dateRange.value?.length === 2) {
-      params.start_date = dateRange.value[0]
-      params.end_date = dateRange.value[1]
+    const params = {
+      period_type: periodType.value,
+      period_value: periodValue.value || '',
+      rank_by: rankDimension.value,
     }
     const res = await getPerformanceRanking(params)
-    if (res.data) {
-      tableData.value = res.data.list || []
+    if (res.data && Array.isArray(res.data)) {
+      // 适配后端下划线命名到前端驼峰命名
+      tableData.value = res.data.map(item => ({
+        name: item.name,
+        salesAmount: item.sales_amount || 0,
+        orderCount: item.order_count || 0,
+        profit: item.profit || 0,
+        profitRate: item.profit_rate || 0,
+      }))
       chartXData.value = tableData.value.slice(0, 10).map((item) => item.name)
       chartSeriesData.value = [
         {

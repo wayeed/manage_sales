@@ -6,8 +6,8 @@
           <view class="logo-chair"></view>
         </view>
       </view>
-      <text class="login-title">家具销售提成</text>
-      <text class="login-subtitle">员工端管理系统</text>
+      <text class="login-title">家具销售管理系统</text>
+      <text class="login-subtitle">员工端</text>
     </view>
 
     <view class="login-form">
@@ -41,6 +41,26 @@
       </button>
     </view>
 
+    <!-- APP下载引导模块 - 仅H5模式显示 -->
+    <view class="download-banner" v-if="isH5">
+      <view class="download-icon-wrapper">
+        <view class="download-icon"></view>
+      </view>
+      <view class="download-content">
+        <view class="download-title">下载官方APP</view>
+        <view class="download-desc">体验更流畅的操作体验，随时随地管理订单、查看业绩</view>
+        <view class="download-badge">
+          <view class="badge-item">
+          <view class="badge-dot"></view>
+            极速响应</view>
+          <view class="badge-item">
+            <view class="badge-dot"></view>
+            实时数据</view>
+        </view>
+        <view class="download-btn-wrapper" @tap="handleDownload">立即下载</view>
+      </view>
+    </view>
+
     <view class="login-footer">
       <text class="footer-text">v1.0.0</text>
     </view>
@@ -49,6 +69,10 @@
 
 <script>
 import { useUserStore } from '../../store/user'
+import { getLatestVersion } from '../../api/app-version'
+
+// 默认下载链接（fallback）
+const DEFAULT_DOWNLOAD_URL = 'https://www.jiaju.com/app/download/jiaju_mall.apk'
 
 export default {
   data() {
@@ -58,10 +82,68 @@ export default {
         password: ''
       },
       showPassword: false,
-      loading: false
+      loading: false,
+      isH5: false,
+      downloadUrl: DEFAULT_DOWNLOAD_URL,
+      downloading: false,
+      versionInfo: null
+    }
+  },
+  created() {
+    // 判断是否H5环境
+    this.isH5 = process.env.UNI_PLATFORM === 'h5'
+    
+    // 如果是H5环境，获取最新版本信息
+    if (this.isH5) {
+      this.fetchLatestVersion()
     }
   },
   methods: {
+    /**
+     * 获取最新APP版本信息
+     */
+    async fetchLatestVersion() {
+      try {
+        // 从缓存中获取（缓存有效期24小时）
+        const cachedVersion = uni.getStorageSync('app_version_cache')
+        const cacheTime = uni.getStorageSync('app_version_cache_time')
+        const now = Date.now()
+        
+        // 如果缓存存在且未过期（24小时内），使用缓存
+        if (cachedVersion && cacheTime && (now - cacheTime < 24 * 60 * 60 * 1000)) {
+          this.downloadUrl = cachedVersion.download_url || DEFAULT_DOWNLOAD_URL
+          this.versionInfo = cachedVersion
+          return
+        }
+        
+        // 调用API获取最新版本信息
+        const res = await getLatestVersion('android')
+        if (res.code === 200 && res.data) {
+          const versionData = res.data
+          
+          // 只缓存整包更新的下载链接（update_type为'full'）
+          if (versionData.update_type === 'full' && versionData.download_url) {
+            this.downloadUrl = versionData.download_url
+            this.versionInfo = versionData
+            
+            // 缓存到本地
+            uni.setStorageSync('app_version_cache', versionData)
+            uni.setStorageSync('app_version_cache_time', now)
+            
+            console.log('获取最新版本成功:', versionData.version_name)
+          } else {
+            // 如果是热更新，使用默认下载链接
+            console.log('最新版本为热更新类型，使用默认下载链接')
+            this.downloadUrl = DEFAULT_DOWNLOAD_URL
+          }
+        }
+      } catch (err) {
+        console.error('获取最新版本失败:', err)
+        // 失败时使用默认下载链接
+        this.downloadUrl = DEFAULT_DOWNLOAD_URL
+      }
+    },
+    
     async handleLogin() {
       if (!this.form.username) {
         return uni.showToast({ title: '请输入用户名', icon: 'none' })
@@ -77,12 +159,53 @@ export default {
         await userStore.fetchUserInfo()
         uni.showToast({ title: '登录成功', icon: 'success' })
         setTimeout(() => {
-          uni.switchTab({ url: '/pages/index/index' })
+          uni.reLaunch({ url: '/pages/index/index' })
         }, 500)
       } catch (err) {
         console.error('登录失败:', err)
       } finally {
         this.loading = false
+      }
+    },
+    
+    async handleDownload() {
+      // 防止重复点击
+      if (this.downloading) return
+      
+      this.downloading = true
+      
+      try {
+        // 显示版本信息提示
+        let toastMessage = '正在跳转下载页面'
+        if (this.versionInfo) {
+          toastMessage = `正在下载 v${this.versionInfo.version_name}`
+        }
+        
+        uni.showToast({ 
+          title: toastMessage, 
+          icon: 'none',
+          duration: 1500
+        })
+        
+        // 延迟跳转，让用户看到提示
+        await new Promise(resolve => setTimeout(resolve, 800))
+        
+        // 跳转到下载链接
+        if (this.downloadUrl) {
+          window.location.href = this.downloadUrl
+        } else {
+          // 如果动态链接获取失败，使用默认链接
+          window.location.href = DEFAULT_DOWNLOAD_URL
+        }
+      } catch (err) {
+        console.error('下载跳转失败:', err)
+        // 出错时使用默认链接
+        uni.showToast({ title: '下载跳转失败，请稍后重试', icon: 'none' })
+      } finally {
+        // 延迟释放下载状态，防止用户快速重复点击
+        setTimeout(() => {
+          this.downloading = false
+        }, 2000)
       }
     }
   }
@@ -206,12 +329,15 @@ export default {
   margin-top: 20rpx;
   width: 100%;
   height: 88rpx;
-  line-height: 88rpx;
   font-size: 32rpx;
   border-radius: 12rpx;
   background-color: #1890ff;
   color: #ffffff;
   border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
 
   &:active {
     background-color: #096dd9;
@@ -220,6 +346,120 @@ export default {
   &.disabled {
     opacity: 0.6;
   }
+}
+
+/* APP下载引导模块样式 */
+.download-banner {
+  background: linear-gradient(135deg, rgba(255, 249, 230, 0.98) 0%, rgba(255, 245, 204, 0.98) 100%);
+  border: 3rpx dashed #ffc53d;
+  border-radius: 16rpx;
+  padding: 30rpx;
+  margin-top: 30rpx;
+  display: flex;
+  align-items: center;
+  gap: 24rpx;
+}
+
+.download-icon-wrapper {
+  width: 96rpx;
+  height: 96rpx;
+  background: linear-gradient(135deg, #ffc53d 0%, #ffa940 100%);
+  border-radius: 24rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  box-shadow: 0 8rpx 24rpx rgba(255, 197, 61, 0.4);
+}
+
+.download-icon {
+  width: 52rpx;
+  height: 52rpx;
+  border: 4rpx solid #fff;
+  border-radius: 8rpx 8rpx 0 0;
+  position: relative;
+
+  &::before {
+    content: '';
+    position: absolute;
+    bottom: -20rpx;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 60rpx;
+    height: 6rpx;
+    background-color: #fff;
+    border-radius: 3rpx;
+  }
+
+  &::after {
+    content: '';
+    position: absolute;
+    top: 10rpx;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 16rpx;
+    height: 20rpx;
+    border-left: 4rpx solid #fff;
+    border-bottom: 4rpx solid #fff;
+  }
+}
+
+.download-content {
+  flex: 1;
+  min-width: 0;
+}
+
+.download-title {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: #d46b08;
+  margin-bottom: 8rpx;
+}
+
+.download-desc {
+  font-size: 24rpx;
+  color: #fa8c16;
+  margin-bottom: 16rpx;
+  line-height: 1.5;
+}
+
+.download-badge {
+  display: flex;
+  gap: 12rpx;
+  margin-bottom: 16rpx;
+  flex-wrap: wrap;
+}
+
+.badge-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6rpx;
+  background: rgba(255, 255, 255, 0.9);
+  padding: 6rpx 16rpx;
+  border-radius: 20rpx;
+  font-size: 20rpx;
+  color: #d46b08;
+  font-weight: 500;
+}
+
+.badge-dot {
+  width: 8rpx;
+  height: 8rpx;
+  background-color: #ffc53d;
+  border-radius: 50%;
+}
+
+.download-btn-wrapper {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #ffc53d 0%, #ffa940 100%);
+  color: #fff;
+  padding: 14rpx 36rpx;
+  border-radius: 40rpx;
+  font-size: 26rpx;
+  font-weight: 600;
+  box-shadow: 0 6rpx 16rpx rgba(255, 197, 61, 0.35);
 }
 
 .login-footer {

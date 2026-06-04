@@ -37,6 +37,7 @@ type Order struct {
 	PeerID	*int64	`gorm:"column:peer_id" json:"peer_id" example:"1"`
 	IsSpecialApproved	int8	`gorm:"column:is_special_approved;default:0" json:"is_special_approved" example:"0"`
 	ApprovalRemark	string	`gorm:"column:approval_remark;type:varchar(500)" json:"approval_remark" example:""`
+	EditCount	int8	`gorm:"column:edit_count;default:0" json:"edit_count"` // 修改次数(0=未修改)
 	ApprovedBy	*int64	`gorm:"column:approved_by" json:"approved_by" example:"1"`
 	ApprovedAt	*time.Time	`gorm:"column:approved_at" json:"approved_at" example:"2025-01-15T14:00:00+08:00"`
 	IsReturned	int8	`gorm:"column:is_returned;default:0" json:"is_returned" example:"0"`
@@ -45,9 +46,13 @@ type Order struct {
 	Remark	string	`gorm:"column:remark;type:varchar(500)" json:"remark" example:"备注信息"`
 	OrderDate	*time.Time	`gorm:"column:order_date" json:"order_date" example:"2025-01-15T00:00:00+08:00"`
 	IsDraft	int8	`gorm:"column:is_draft;default:0" json:"is_draft" example:"0"` // 0-正式订单, 1-草稿
+	StockStatus	int8	`gorm:"column:stock_status;default:0" json:"stock_status" example:"0"` // 0-全部有库存, 1-部分缺货, 2-全部缺货
 	CreatedBy	*int64	`gorm:"column:created_by" json:"created_by" example:"1"`
 	CreatedAt	time.Time	`json:"created_at" example:"2025-01-15T00:00:00+08:00"`
 	UpdatedAt	time.Time	`json:"updated_at" example:"2025-01-15T00:00:00+08:00"`
+
+	// 非数据库字段（用于返回）
+	SalesmanName string `gorm:"-" json:"salesman_name,omitempty"`
 
 	// 关联
 	Items     []OrderItem `gorm:"foreignKey:OrderID" json:"items,omitempty"`
@@ -56,6 +61,8 @@ type Order struct {
 	Salesman  *User       `gorm:"foreignKey:SalesmanID" json:"salesman,omitempty"`
 	Customer  *Customer   `gorm:"foreignKey:CustomerID" json:"customer,omitempty"`
 	Peer      *Peer       `gorm:"foreignKey:PeerID" json:"peer,omitempty"`
+	OutboundRequest *OutboundRequest `gorm:"foreignKey:OrderID" json:"outbound_request,omitempty"`
+	OutboundConfirmed bool         `gorm:"column:outbound_confirmed;default:false" json:"outbound_confirmed"`
 }
 
 // TableName 指定表名

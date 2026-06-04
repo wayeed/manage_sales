@@ -1,6 +1,5 @@
 <template>
-  
-<el-dialog v-dialog-drag
+  <el-dialog v-dialog-drag
     :model-value="visible"
     title="订单退货"
     width="500px"
@@ -17,13 +16,13 @@
         <span>{{ order?.order_no }}</span>
       </el-form-item>
       <el-form-item label="最终成交价">
-        <span class="price">{{ formatCurrency(order?.final_price) }}</span>
+        <span class="price">{{ formatCurrency(order?.final_amount) }}</span>
       </el-form-item>
       <el-form-item label="退货金额" prop="return_amount">
         <el-input-number
           v-model="formData.return_amount"
           :min="0"
-          :max="order?.final_price || 0"
+          :max="order?.final_amount || 0"
           :precision="2"
           controls-position="right"
           style="width: 100%"
@@ -38,6 +37,21 @@
           style="width: 100%"
           placeholder="请输入利润冲减金额"
         />
+      </el-form-item>
+      <!-- 出库后退货才需要选择退入仓库 -->
+      <el-form-item v-if="isDelivered" label="退货仓库" prop="warehouse_id">
+        <el-select
+          v-model="formData.warehouse_id"
+          placeholder="请选择退货仓库"
+          style="width: 100%"
+        >
+          <el-option
+            v-for="wh in warehouseList"
+            :key="wh.id"
+            :label="wh.warehouse_name"
+            :value="wh.id"
+          />
+        </el-select>
       </el-form-item>
       <el-form-item label="退货原因" prop="reason">
         <el-input
@@ -58,9 +72,10 @@
 </template>
 
 <script setup>
-import { ref, reactive, watch } from 'vue'
+import { ref, reactive, watch, computed } from 'vue'
 import { ElMessage } from 'element-plus'
 import { returnOrder } from '@/api/order'
+import { getWarehouseList } from '@/api/warehouse'
 import { formatCurrency } from '@/utils/format'
 
 const props = defineProps({
@@ -78,16 +93,36 @@ const emit = defineEmits(['update:visible', 'success'])
 
 const formRef = ref(null)
 const submitLoading = ref(false)
+const warehouseList = ref([])
+
+// 是否已出库（delivery_status > 0 表示已出库）
+const isDelivered = computed(() => {
+  return props.order?.delivery_status > 0 || props.order?.outbound_confirmed === true
+})
 
 const formData = reactive({
   return_amount: 0,
   profit_deduction: 0,
+  warehouse_id: null,
   reason: '',
 })
 
-const formRules = {
+// 动态表单校验规则
+const formRules = computed(() => ({
   return_amount: [{ required: true, message: '请输入退货金额', trigger: 'blur' }],
+  warehouse_id: isDelivered.value ? [{ required: true, message: '请选择退货仓库', trigger: 'change' }] : [],
   reason: [{ required: true, message: '请输入退货原因', trigger: 'blur' }],
+}))
+
+// 加载仓库列表
+const loadWarehouseList = async () => {
+  try {
+    const res = await getWarehouseList({ page: 1, page_size: 100 })
+    // API 返回的数据直接是数组
+    warehouseList.value = Array.isArray(res.data) ? res.data : (res.data?.list || [])
+  } catch (err) {
+    console.error('加载仓库列表失败:', err)
+  }
 }
 
 watch(
@@ -96,7 +131,12 @@ watch(
     if (val) {
       formData.return_amount = 0
       formData.profit_deduction = 0
+      formData.warehouse_id = null
       formData.reason = ''
+      // 只有出库后才需要加载仓库列表
+      if (isDelivered.value) {
+        loadWarehouseList()
+      }
     }
   }
 )
@@ -111,11 +151,16 @@ const handleSubmit = async () => {
 
   submitLoading.value = true
   try {
-    await returnOrder(props.order.id, {
-      return_amount: formData.return_amount,
-      profit_deduction: formData.profit_deduction,
+    const params = {
+      return_amount: Number(formData.return_amount) || 0,
+      return_profit: Number(formData.profit_deduction) || 0,
       reason: formData.reason,
-    })
+    }
+    // 出库后退货才传递仓库ID
+    if (isDelivered.value) {
+      params.warehouse_id = formData.warehouse_id
+    }
+    await returnOrder(props.order.id, params)
     ElMessage.success('退货操作成功')
     handleClose()
     emit('success')

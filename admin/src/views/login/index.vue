@@ -4,7 +4,7 @@
       <div class="login-header">
         <el-icon :size="40" color="#1890ff"><Shop /></el-icon>
         <h2 class="login-title">{{ title }}</h2>
-        <p class="login-subtitle">家具销售提成管理系统</p>
+        <p class="login-subtitle">后台管理端</p>
       </div>
 
       <el-form

@@ -843,9 +843,10 @@ func (s *ReportService) GetCommissionAnalysis(storeID int64, startDate, endDate 
 			DATE_FORMAT(o.order_date, '%Y-%m') as period,
 			COALESCE(SUM(o.final_amount), 0) as sales,
 			COALESCE(SUM(o.actual_profit), 0) as profit,
-			COALESCE((SELECT SUM(c.amount) FROM commissions c WHERE c.order_id = o.id), 0) as commission,
-			COUNT(*) as orders
+			COALESCE(SUM(c.amount), 0) as commission,
+			COUNT(DISTINCT o.id) as orders
 		FROM orders o
+		LEFT JOIN commissions c ON c.order_id = o.id
 		WHERE o.store_id = ? AND o.order_status = 1 AND o.order_date BETWEEN ? AND ?
 		GROUP BY DATE_FORMAT(o.order_date, '%Y-%m')
 		ORDER BY period ASC

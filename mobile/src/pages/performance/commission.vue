@@ -15,24 +15,24 @@
     <view class="summary-card card">
       <view class="summary-row">
         <text class="summary-label">销售提成</text>
-        <text class="summary-value">{{ summary.salesCommission || '0.00' }}元</text>
+        <text class="summary-value">{{ formatAmount(summary.salesCommission) }}元</text>
       </view>
       <view class="summary-row">
         <text class="summary-label">团队分润</text>
-        <text class="summary-value">{{ summary.teamShare || '0.00' }}元</text>
+        <text class="summary-value">{{ formatAmount(summary.teamShare) }}元</text>
       </view>
       <view class="summary-row">
         <text class="summary-label">基金池奖励</text>
-        <text class="summary-value">{{ summary.fundReward || '0.00' }}元</text>
+        <text class="summary-value">{{ formatAmount(summary.fundReward) }}元</text>
       </view>
       <view class="summary-row">
         <text class="summary-label">老带新奖励</text>
-        <text class="summary-value">{{ summary.mentorReward || '0.00' }}元</text>
+        <text class="summary-value">{{ formatAmount(summary.mentorReward) }}元</text>
       </view>
       <view class="divider"></view>
       <view class="summary-row summary-total">
         <text class="summary-label summary-total-label">提成合计</text>
-        <text class="summary-value summary-total-value">{{ summary.totalCommission || '0.00' }}元</text>
+        <text class="summary-value summary-total-value">{{ formatAmount(summary.totalCommission) }}元</text>
       </view>
     </view>
 
@@ -45,15 +45,22 @@
           :key="item.id || index"
           class="commission-item"
         >
-          <view class="commission-left">
-            <text class="commission-order">{{ item.orderNo || '--' }}</text>
-            <text class="commission-type">{{ item.typeName || '销售提成' }}</text>
-            <text class="commission-date">{{ item.createTime || '' }}</text>
-          </view>
-          <view class="commission-right">
-            <text class="commission-amount">+{{ item.amount || '0.00' }}</text>
-            <view class="tag" :class="getCommissionStatusClass(item.status)">
-              <text>{{ getCommissionStatusText(item.status) }}</text>
+          <view class="commission-main">
+            <view class="commission-header">
+              <text class="commission-order">{{ getOrderNo(item) }}</text>
+              <text class="commission-amount">+{{ formatAmount(item.amount) }}元</text>
+            </view>
+            <view class="commission-meta">
+              <text class="commission-type">{{ getCommissionTypeName(item.commission_type) }}</text>
+              <text class="commission-dot">·</text>
+              <text class="commission-time">{{ formatDateTime(item.created_at) }}</text>
+              <text class="commission-dot">·</text>
+              <view class="commission-status-tag" :class="getStatusClass(item.status)">
+                <text>{{ getStatusName(item.status) }}</text>
+              </view>
+            </view>
+            <view v-if="item.remark" class="commission-remark">
+              <text>备注：{{ item.remark }}</text>
             </view>
           </view>
         </view>
@@ -109,22 +116,62 @@ export default {
       loadData()
     }
 
-    const getCommissionStatusText = (status) => {
-      const map = {
-        'PENDING': '待发放',
-        'PAID': '已发放',
-        'CANCELLED': '已取消'
-      }
-      return map[status] || status || '未知'
+    // 格式化金额
+    const formatAmount = (val) => {
+      if (val === undefined || val === null || val === '') return '0.00'
+      const num = parseFloat(val)
+      if (isNaN(num)) return '0.00'
+      return num.toFixed(2)
     }
 
-    const getCommissionStatusClass = (status) => {
+    // 格式化日期时间
+    const formatDateTime = (dateStr) => {
+      if (!dateStr) return '--'
+      const date = new Date(dateStr)
+      if (isNaN(date.getTime())) return dateStr
+      const month = String(date.getMonth() + 1).padStart(2, '0')
+      const day = String(date.getDate()).padStart(2, '0')
+      const hours = String(date.getHours()).padStart(2, '0')
+      const minutes = String(date.getMinutes()).padStart(2, '0')
+      return `${month}-${day} ${hours}:${minutes}`
+    }
+
+    // 获取订单号
+    const getOrderNo = (item) => {
+      return item.order?.order_no || item.order_id || '--'
+    }
+
+    // 提成类型名称映射
+    const getCommissionTypeName = (type) => {
       const map = {
-        'PENDING': 'tag-warning',
-        'PAID': 'tag-success',
-        'CANCELLED': 'tag-danger'
+        1: '业务员提成',
+        2: '同行分成',
+        3: '主管团队分润',
+        4: '店长团队分润',
+        5: '基金池奖励',
+        6: '老带新奖励'
       }
-      return map[status] || ''
+      return map[type] || '销售提成'
+    }
+
+    // 提成状态名称映射
+    const getStatusName = (status) => {
+      const map = {
+        0: '待回款',
+        1: '可发放',
+        2: '已发放'
+      }
+      return map[status] || '未知'
+    }
+
+    // 提成状态样式类
+    const getStatusClass = (status) => {
+      const map = {
+        0: 'status-pending',
+        1: 'status-ready',
+        2: 'status-paid'
+      }
+      return map[status] || 'status-pending'
     }
 
     const loadData = async () => {
@@ -146,7 +193,10 @@ export default {
         const total = res.data?.total || 0
         hasMore.value = commissionList.value.length < total
       } catch (e) {
-        commissionList.value = []
+        console.error('加载提成明细失败:', e)
+        if (page.value === 1) {
+          commissionList.value = []
+        }
       } finally {
         loading.value = false
       }
@@ -163,8 +213,12 @@ export default {
       loading,
       hasMore,
       changeMonth,
-      getCommissionStatusText,
-      getCommissionStatusClass
+      formatAmount,
+      formatDateTime,
+      getOrderNo,
+      getCommissionTypeName,
+      getStatusName,
+      getStatusClass
     }
   },
   onReachBottom() {
@@ -180,6 +234,12 @@ export default {
 .commission-page {
   min-height: 100vh;
   background-color: #f5f5f5;
+}
+
+.card {
+  background-color: #ffffff;
+  border-radius: 16rpx;
+  box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.04);
 }
 
 .month-selector {
@@ -209,8 +269,8 @@ export default {
 
 .month-text {
   font-size: 32rpx;
-  font-weight: bold;
-  color: #333333;
+  font-weight: 600;
+  color: #1a1a1a;
   margin: 0 40rpx;
 }
 
@@ -243,13 +303,13 @@ export default {
 
 .summary-total-label {
   font-size: 30rpx;
-  font-weight: bold;
-  color: #333333;
+  font-weight: 600;
+  color: #1a1a1a;
 }
 
 .summary-total-value {
   font-size: 32rpx;
-  font-weight: bold;
+  font-weight: 700;
   color: #ff4d4f;
 }
 
@@ -266,56 +326,116 @@ export default {
 
 .section-title {
   font-size: 32rpx;
-  font-weight: bold;
-  color: #333333;
+  font-weight: 600;
+  color: #1a1a1a;
   margin-bottom: 20rpx;
 }
 
+// 提成明细列表 - 优化布局
 .commission-item {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 20rpx 0;
-  border-bottom: 1rpx solid #eeeeee;
+  padding: 24rpx 0;
+  border-bottom: 1rpx solid #f0f0f0;
 
   &:last-child {
     border-bottom: none;
   }
 }
 
-.commission-left {
+.commission-main {
   display: flex;
   flex-direction: column;
+  gap: 12rpx;
+}
+
+.commission-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
 
 .commission-order {
-  font-size: 26rpx;
-  color: #999999;
-  margin-bottom: 6rpx;
-}
-
-.commission-type {
-  font-size: 26rpx;
+  font-size: 28rpx;
   color: #333333;
-  margin-bottom: 4rpx;
-}
-
-.commission-date {
-  font-size: 22rpx;
-  color: #cccccc;
-}
-
-.commission-right {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 8rpx;
+  font-weight: 500;
 }
 
 .commission-amount {
   font-size: 30rpx;
-  font-weight: bold;
+  font-weight: 700;
   color: #ff4d4f;
+}
+
+.commission-meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8rpx;
+}
+
+.commission-type {
+  font-size: 24rpx;
+  color: #666666;
+}
+
+.commission-dot {
+  font-size: 24rpx;
+  color: #cccccc;
+}
+
+.commission-time {
+  font-size: 24rpx;
+  color: #999999;
+}
+
+.commission-remark {
+  padding: 12rpx 16rpx;
+  background-color: #f5f5f5;
+  border-radius: 8rpx;
+  margin-top: 4rpx;
+
+  text {
+    font-size: 24rpx;
+    color: #999999;
+  }
+}
+
+// 状态标签
+.commission-status-tag {
+  padding: 4rpx 12rpx;
+  border-radius: 6rpx;
+  font-size: 22rpx;
+
+  text {
+    font-weight: 500;
+  }
+}
+
+.status-pending {
+  background-color: #fff7e6;
+  color: #fa8c16;
+}
+
+.status-ready {
+  background-color: #e6f7ff;
+  color: #1890ff;
+}
+
+.status-paid {
+  background-color: #f6ffed;
+  color: #52c41a;
+}
+
+// 空状态
+.empty-state {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 60rpx 0;
+
+  &__text {
+    font-size: 28rpx;
+    color: #999999;
+  }
 }
 
 .loading-more {

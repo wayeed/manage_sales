@@ -40,6 +40,10 @@
         <div class="card-header">
           <span class="title">商品列表</span>
           <div class="header-actions">
+            <el-button type="success" @click="handleImport">
+              <el-icon><Upload /></el-icon>
+              批量导入
+            </el-button>
             <el-button type="primary" @click="handleAdd">
               <el-icon><Plus /></el-icon>
               新增商品
@@ -64,6 +68,31 @@
         </el-table-column>
         <el-table-column prop="product_code" label="商品编码" width="120" />
         <el-table-column prop="product_name" label="商品名称" min-width="180" show-overflow-tooltip />
+        <el-table-column prop="brand" label="品牌" width="100" show-overflow-tooltip>
+          <template #default="{ row }">
+            {{ row.brand || '-' }}
+          </template>
+        </el-table-column>
+        <el-table-column prop="style" label="款式" width="100" show-overflow-tooltip>
+          <template #default="{ row }">
+            {{ row.style || '-' }}
+          </template>
+        </el-table-column>
+        <el-table-column prop="unit" label="单位" width="70" align="center">
+          <template #default="{ row }">
+            {{ row.unit || '件' }}
+          </template>
+        </el-table-column>
+        <el-table-column prop="series" label="系列" width="100" show-overflow-tooltip>
+          <template #default="{ row }">
+            {{ row.series || '-' }}
+          </template>
+        </el-table-column>
+        <el-table-column prop="sub_category" label="类别" width="70" align="center">
+          <template #default="{ row }">
+            {{ row.sub_category || '-' }}
+          </template>
+        </el-table-column>
         <el-table-column prop="category" label="分类" width="120">
           <template #default="{ row }">
             {{ row.category?.category_name || '-' }}
@@ -111,7 +140,7 @@
       <div class="pagination-wrapper">
         <el-pagination
           v-model:current-page="pagination.page"
-          v-model:page-size="pagination.pageSize"
+          v-model:page-size="pagination.page_size"
           :total="pagination.total"
           :page-sizes="[10, 20, 50, 100]"
           layout="total, sizes, prev, pager, next, jumper"
@@ -120,6 +149,70 @@
         />
       </div>
     </el-card>
+
+    <!-- 批量导入弹窗 -->
+    <el-dialog v-model="importDialogVisible" title="批量导入商品" width="650px" destroy-on-close>
+      <div class="import-tips">
+        <el-alert type="info" :closable="false" show-icon>
+          <template #title>
+            <span>1. 请先</span>
+            <el-link type="primary" @click="handleDownloadTemplate" :underline="false">下载导入模板</el-link>
+            <span>，按模板格式填写数据后上传</span>
+          </template>
+          <template #default>
+            <div style="margin-top: 4px; font-size: 12px; color: #909399;">
+              商品编码为空时系统自动生成；规格属性格式：颜色:红色,尺寸:三座
+            </div>
+          </template>
+        </el-alert>
+      </div>
+
+      <el-upload
+        ref="uploadRef"
+        drag
+        :auto-upload="false"
+        :limit="1"
+        accept=".xlsx"
+        :on-change="handleFileChange"
+        :on-exceed="handleExceed"
+        :on-remove="handleFileRemove"
+        style="margin-top: 16px"
+      >
+        <el-icon class="el-icon--upload" style="font-size: 48px; color: #c0c4cc"><UploadFilled /></el-icon>
+        <div class="el-upload__text">将xlsx文件拖到此处，或<em>点击上传</em></div>
+        <template #tip>
+          <div class="el-upload__tip">仅支持 .xlsx 格式文件</div>
+        </template>
+      </el-upload>
+
+      <!-- 导入结果 -->
+      <div v-if="importResult" class="import-result">
+        <el-divider />
+        <el-result
+          v-if="importResult.fail_count === 0"
+          icon="success"
+          :title="`导入完成，成功 ${importResult.success_count} 条`"
+        />
+        <div v-else>
+          <el-result
+            icon="warning"
+            :title="`导入完成：成功 ${importResult.success_count} 条，失败 ${importResult.fail_count} 条`"
+          />
+          <el-table :data="importResult.errors" border size="small" max-height="200" style="margin-top: 8px">
+            <el-table-column prop="row" label="行号" width="70" />
+            <el-table-column prop="code" label="编码" width="130" />
+            <el-table-column prop="message" label="失败原因" />
+          </el-table>
+        </div>
+      </div>
+
+      <template #footer>
+        <el-button @click="importDialogVisible = false">关闭</el-button>
+        <el-button type="primary" :loading="importLoading" :disabled="!importFile" @click="handleDoImport">
+          开始导入
+        </el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -127,8 +220,8 @@
 import { ref, reactive, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { Plus } from '@element-plus/icons-vue'
-import { getProductList, updateProduct, deleteProduct } from '@/api/product'
+import { Plus, Upload, UploadFilled } from '@element-plus/icons-vue'
+import { getProductList, updateProduct, deleteProduct, importProducts, downloadImportTemplate } from '@/api/product'
 import { getCategoryList } from '@/api/category'
 
 const router = useRouter()
@@ -144,7 +237,7 @@ const searchForm = reactive({
 
 const pagination = reactive({
   page: 1,
-  pageSize: 20,
+  page_size: 20,
   total: 0,
 })
 
@@ -162,7 +255,7 @@ const fetchProductList = async () => {
   try {
     const params = {
       page: pagination.page,
-      pageSize: pagination.pageSize,
+      page_size: pagination.page_size,
       ...searchForm,
     }
     const res = await getProductList(params)
@@ -232,6 +325,66 @@ const handleDelete = async (row) => {
       console.error('删除失败:', error)
       ElMessage.error('删除失败')
     }
+  }
+}
+
+// ===== 批量导入 =====
+const importDialogVisible = ref(false)
+const importLoading = ref(false)
+const importFile = ref(null)
+const importResult = ref(null)
+const uploadRef = ref()
+
+const handleImport = () => {
+  importFile.value = null
+  importResult.value = null
+  importDialogVisible.value = true
+}
+
+const handleDownloadTemplate = async () => {
+  try {
+    const res = await downloadImportTemplate()
+    const blob = new Blob([res], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+    const url = window.URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = '商品导入模板.xlsx'
+    link.click()
+    window.URL.revokeObjectURL(url)
+  } catch (error) {
+    console.error('下载模板失败:', error)
+    ElMessage.error('下载模板失败')
+  }
+}
+
+const handleFileChange = (file) => {
+  importFile.value = file.raw
+  importResult.value = null
+}
+
+const handleFileRemove = () => {
+  importFile.value = null
+}
+
+const handleExceed = () => {
+  ElMessage.warning('只能上传一个文件，请先删除已选文件')
+}
+
+const handleDoImport = async () => {
+  if (!importFile.value) return
+  importLoading.value = true
+  importResult.value = null
+  try {
+    const res = await importProducts(importFile.value)
+    importResult.value = res.data
+    if (res.data.success_count > 0) {
+      ElMessage.success(`成功导入 ${res.data.success_count} 条商品`)
+      fetchProductList()
+    }
+  } catch (error) {
+    console.error('导入失败:', error)
+  } finally {
+    importLoading.value = false
   }
 }
 

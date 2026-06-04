@@ -6,6 +6,13 @@
         <text class="greeting-text">{{ greetingText }}，{{ userName }}</text>
         <text class="greeting-date">{{ currentDate }}</text>
       </view>
+      <!-- 审批提醒入口 -->
+      <view class="header-actions" @tap="goToApproval">
+        <view class="approval-icon">
+          <text class="approval-icon-text">审</text>
+          <view v-if="pendingCount > 0" class="approval-badge">{{ pendingCount > 99 ? '99+' : pendingCount }}</view>
+        </view>
+      </view>
     </view>
 
     <!-- 数据概览卡片 2x2 -->
@@ -80,6 +87,11 @@
               </view>
             </view>
             <text class="order-customer">{{ order.customer_name || '客户' }}</text>
+            <view class="order-meta">
+              <text class="order-meta-item">{{ order.salesman_name || order.salesman?.real_name || '--' }}</text>
+              <text class="order-meta-divider">·</text>
+              <text class="order-meta-item">{{ formatOrderTime(order.created_at) }}</text>
+            </view>
           </view>
           <view class="order-right">
             <text class="order-amount">{{ order.final_amount || '--' }}元</text>
@@ -100,9 +112,12 @@
 
 <script>
 import { ref, onMounted, computed } from 'vue'
+import { onPullDownRefresh } from '@dcloudio/uni-app'
 import { useUserStore } from '../../store/user'
 import { getOverview } from '../../api/performance'
 import { getOrders } from '../../api/order'
+import { getPendingApprovals } from '../../api/approval'
+import { getPendingOutboundRequests } from '../../api/outbound-request'
 import CustomTabBar from '../../components/CustomTabBar.vue'
 
 export default {
@@ -111,6 +126,7 @@ export default {
     const userStore = useUserStore()
     const overview = ref({})
     const recentOrders = ref([])
+    const pendingCount = ref(0)
 
     const userName = computed(() => {
       return userStore.userInfo?.name || userStore.userInfo?.username || '同事'
@@ -151,6 +167,17 @@ export default {
       return map[status] || ''
     }
 
+    // 格式化订单时间（MM-DD HH:mm）
+    const formatOrderTime = (dateStr) => {
+      if (!dateStr) return '--'
+      const date = new Date(dateStr)
+      const month = String(date.getMonth() + 1).padStart(2, '0')
+      const day = String(date.getDate()).padStart(2, '0')
+      const hour = String(date.getHours()).padStart(2, '0')
+      const min = String(date.getMinutes()).padStart(2, '0')
+      return `${month}-${day} ${hour}:${min}`
+    }
+
     const goTo = (url) => {
       // tabbar 页面使用 switchTab，其他页面使用 navigateTo
       const tabbarPages = [
@@ -162,9 +189,34 @@ export default {
       ]
       const isTabbar = tabbarPages.some(path => url.startsWith(path))
       if (isTabbar) {
-        uni.switchTab({ url })
+        uni.reLaunch({ url })
       } else {
         uni.navigateTo({ url })
+      }
+    }
+
+    // 跳转到审批管理页面
+    const goToApproval = () => {
+      uni.navigateTo({ url: '/pages/approval/pending' })
+    }
+
+    // 查询待审批数量
+    const fetchPendingCount = async () => {
+      try {
+        const res = await getPendingApprovals({ page: 1, page_size: 1 })
+        let total = res.data?.total || 0
+
+        // 同时查询待审批的出库申请数量
+        try {
+          const outboundRes = await getPendingOutboundRequests({ page: 1, page_size: 1 })
+          total += outboundRes.data?.total || 0
+        } catch (e) {
+          // 忽略出库审批查询错误
+        }
+
+        pendingCount.value = total
+      } catch (e) {
+        pendingCount.value = 0
       }
     }
 
@@ -201,29 +253,35 @@ export default {
     }
 
     // 下拉刷新
-    const onPullDownRefresh = async () => {
+    const handlePullDownRefresh = async () => {
       await loadData()
+      await fetchPendingCount()
       uni.stopPullDownRefresh()
     }
+
+    onPullDownRefresh(handlePullDownRefresh)
 
     onMounted(() => {
       if (userStore.isLoggedIn()) {
         userStore.fetchUserInfo().catch(() => {})
         loadData()
+        fetchPendingCount()
       }
     })
 
     return {
       overview,
       recentOrders,
+      pendingCount,
       userName,
       greetingText,
       currentDate,
       getStatusText,
       getStatusClass,
+      formatOrderTime,
       goTo,
-      handleScan,
-      onPullDownRefresh
+      goToApproval,
+      handleScan
     }
   }
 }
@@ -235,14 +293,71 @@ export default {
   background-color: #f5f5f5;
 }
 
+/* 卡片基础样式 */
+.card {
+  background-color: #ffffff;
+  border-radius: 16rpx;
+  padding: 24rpx;
+  box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.06);
+}
+
 .home-header {
   background: linear-gradient(135deg, #1890ff 0%, #096dd9 100%);
   padding: 40rpx 30rpx 60rpx;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
 }
 
 .greeting {
   display: flex;
   flex-direction: column;
+}
+
+/* 头部操作区 */
+.header-actions {
+  display: flex;
+  align-items: center;
+}
+
+/* 审批图标 */
+.approval-icon {
+  position: relative;
+  width: 64rpx;
+  height: 64rpx;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  &:active {
+    background: rgba(255, 255, 255, 0.3);
+  }
+}
+
+.approval-icon-text {
+  font-size: 28rpx;
+  color: #ffffff;
+  font-weight: 500;
+}
+
+/* 审批角标 */
+.approval-badge {
+  position: absolute;
+  top: -4rpx;
+  right: -4rpx;
+  min-width: 32rpx;
+  height: 32rpx;
+  padding: 0 8rpx;
+  background: #ff4d4f;
+  border-radius: 16rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20rpx;
+  color: #ffffff;
+  font-weight: bold;
 }
 
 .greeting-text {
@@ -426,6 +541,23 @@ export default {
   font-size: 28rpx;
   color: #333333;
   font-weight: 500;
+}
+
+.order-meta {
+  display: flex;
+  align-items: center;
+  margin-top: 6rpx;
+}
+
+.order-meta-item {
+  font-size: 22rpx;
+  color: #999999;
+}
+
+.order-meta-divider {
+  font-size: 22rpx;
+  color: #cccccc;
+  margin: 0 10rpx;
 }
 
 .order-right {

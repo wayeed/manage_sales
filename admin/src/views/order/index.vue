@@ -53,6 +53,18 @@
             <el-option label="已回款" :value="2" />
           </el-select>
         </el-form-item>
+        <el-form-item label="配送状态">
+          <el-select
+            v-model="searchForm.delivery_status"
+            placeholder="全部"
+            clearable
+            style="width: 140px"
+          >
+            <el-option label="未配送" :value="0" />
+            <el-option label="配送中" :value="1" />
+            <el-option label="已配送" :value="2" />
+          </el-select>
+        </el-form-item>
         <el-form-item label="时间范围">
           <el-date-picker
             v-model="searchForm.dateRange"
@@ -120,6 +132,11 @@
             </el-tag>
           </template>
         </el-table-column>
+        <el-table-column label="商品数量" width="100" align="center">
+          <template #default="{ row }">
+            {{ row.total_quantity || 0 }}
+          </template>
+        </el-table-column>
         <el-table-column label="订单金额" width="120" align="right">
           <template #default="{ row }">
             <span class="price">{{ formatCurrency(row.final_amount) }}</span>
@@ -139,6 +156,14 @@
             </el-tag>
           </template>
         </el-table-column>
+        <el-table-column label="配送状态" width="100" align="center">
+          <template #default="{ row }">
+            <el-tag v-if="row.order_status === 1" :type="getDeliveryStatusTag(row.delivery_status)" size="small">
+              {{ getDeliveryStatusLabel(row.delivery_status) }}
+            </el-tag>
+            <span v-else class="text-muted">-</span>
+          </template>
+        </el-table-column>
         <el-table-column label="订单状态" width="100" align="center">
           <template #default="{ row }">
             <el-tag :type="getStatusTag(row.order_status)" size="small">
@@ -146,7 +171,11 @@
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="created_at" label="创建时间" width="180" />
+        <el-table-column label="创建时间" width="170">
+          <template #default="{ row }">
+            {{ formatDate(row.created_at) }}
+          </template>
+        </el-table-column>
         <el-table-column label="操作" width="200" align="center" fixed="right">
           <template #default="{ row }">
             <el-button type="primary" link size="small" @click="handleDetail(row)">
@@ -204,7 +233,7 @@ import { useRouter } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { getOrderList, cancelOrder } from '@/api/order'
 import { getUserList } from '@/api/user'
-import { formatCurrency } from '@/utils/format'
+import { formatCurrency, formatDate } from '@/utils/format'
 import ApproveDialog from './components/ApproveDialog.vue'
 import ExportDialog from './components/ExportDialog.vue'
 
@@ -220,6 +249,7 @@ const searchForm = reactive({
   status: '',
   order_type: '',
   payment_status: '',
+  delivery_status: '',
   dateRange: null,
   salesman_id: '',
 })
@@ -254,6 +284,7 @@ const getSearchParams = () => {
   if (searchForm.status) params.order_status = searchForm.status
   if (searchForm.order_type) params.order_type = searchForm.order_type
   if (searchForm.payment_status) params.payment_status = searchForm.payment_status
+  if (searchForm.delivery_status !== '' && searchForm.delivery_status !== null) params.delivery_status = searchForm.delivery_status
   if (searchForm.salesman_id) params.salesman_id = searchForm.salesman_id
   if (searchForm.dateRange && searchForm.dateRange.length === 2) {
     params.start_date = searchForm.dateRange[0]
@@ -272,6 +303,7 @@ const handleReset = () => {
   searchForm.status = ''
   searchForm.order_type = ''
   searchForm.payment_status = ''
+  searchForm.delivery_status = ''
   searchForm.dateRange = null
   searchForm.salesman_id = ''
   pagination.page = 1
@@ -318,6 +350,16 @@ const getPaymentStatusLabel = (status) => {
 
 const getPaymentStatusTag = (status) => {
   const map = { 0: 'danger', 1: 'warning', 2: 'success' }
+  return map[status] ?? 'info'
+}
+
+const getDeliveryStatusLabel = (status) => {
+  const map = { 0: '未配送', 1: '配送中', 2: '已配送' }
+  return map[status] ?? status ?? '-'
+}
+
+const getDeliveryStatusTag = (status) => {
+  const map = { 0: 'info', 1: 'warning', 2: 'success' }
   return map[status] ?? 'info'
 }
 

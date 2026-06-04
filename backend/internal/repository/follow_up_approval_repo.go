@@ -16,6 +16,11 @@ func NewFollowUpApprovalRepository(db *gorm.DB) *FollowUpApprovalRepository {
 	return &FollowUpApprovalRepository{db: db}
 }
 
+// DB 返回底层数据库连接
+func (r *FollowUpApprovalRepository) DB() *gorm.DB {
+	return r.db
+}
+
 // Create 创建审批记录
 func (r *FollowUpApprovalRepository) Create(approval *models.FollowUpApproval) error {
 	return r.db.Create(approval).Error
@@ -70,7 +75,7 @@ func (r *FollowUpApprovalRepository) ListByApplicant(applicantID int64, page, pa
 	}
 
 	var approvals []models.FollowUpApproval
-	err := db.Preload("Customer").Preload("Approver").
+	err := db.Preload("Customer").Preload("Approver").Preload("Order").
 		Offset((page - 1) * pageSize).Limit(pageSize).
 		Order("id DESC").
 		Find(&approvals).Error

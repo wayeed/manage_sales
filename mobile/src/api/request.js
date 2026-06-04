@@ -1,4 +1,10 @@
-const BASE_URL = 'http://localhost:8080/api'
+// 后端API基础地址
+// 开发环境使用 localhost，生产/内网环境需要修改为实际IP
+// 例如：const BASE_URL = 'http://192.168.1.100:8080/api'
+const BASE_URL = 'http://192.168.8.104:8080/api'
+//const BASE_URL = 'https://www.jiaju.com/api'
+
+export { BASE_URL }
 
 const request = (options) => {
   return new Promise((resolve, reject) => {
@@ -12,20 +18,36 @@ const request = (options) => {
         'Authorization': token ? `Bearer ${token}` : ''
       },
       success: (res) => {
-        if (res.statusCode === 200) {
-          if (res.data.code === 200) {
-            resolve(res.data)
-          } else if (res.data.code === 401) {
-            uni.removeStorageSync('token')
-            uni.reLaunch({ url: '/pages/login/index' })
-            reject(res.data)
-          } else {
-            uni.showToast({ title: res.data.message || '请求失败', icon: 'none' })
-            reject(res.data)
-          }
+        // 处理 HTTP 状态码
+        if (res.statusCode === 401) {
+          uni.removeStorageSync('token')
+          uni.reLaunch({ url: '/pages/login/index' })
+          reject({ code: 401, message: '登录已过期，请重新登录' })
+          return
+        }
+
+        if (res.statusCode === 403) {
+          uni.showToast({ title: '权限不足，无法执行此操作', icon: 'none' })
+          reject({ code: 403, message: '权限不足' })
+          return
+        }
+
+        if (res.statusCode !== 200) {
+          uni.showToast({ title: `请求失败(${res.statusCode})`, icon: 'none' })
+          reject({ code: res.statusCode, message: '请求失败' })
+          return
+        }
+
+        // 处理业务状态码
+        if (res.data.code === 200) {
+          resolve(res.data)
+        } else if (res.data.code === 401) {
+          uni.removeStorageSync('token')
+          uni.reLaunch({ url: '/pages/login/index' })
+          reject(res.data)
         } else {
-          uni.showToast({ title: '网络错误', icon: 'none' })
-          reject(res)
+          uni.showToast({ title: res.data.message || '请求失败', icon: 'none' })
+          reject(res.data)
         }
       },
       fail: (err) => {

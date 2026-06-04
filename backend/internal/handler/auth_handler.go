@@ -7,9 +7,10 @@ import (
 )
 
 const (
-	contextUserID  = "user_id"
-	contextRole    = "role"
-	contextStoreID = "storeID"
+	contextUserID      = "user_id"
+	contextRole        = "role"
+	contextRoleCodes   = "role_codes"
+	contextStoreID     = "storeID"
 )
 
 // GetUserID 从上下文中获取用户ID
@@ -40,6 +41,16 @@ func GetRole(c *gin.Context) int {
 		}
 	}
 	return 0
+}
+
+// GetRoleCodes 从上下文中获取用户角色编码列表
+func GetRoleCodes(c *gin.Context) []string {
+	if roles, exists := c.Get(contextRoleCodes); exists {
+		if r, ok := roles.([]string); ok {
+			return r
+		}
+	}
+	return []string{}
 }
 
 // AuthHandler 认证处理器

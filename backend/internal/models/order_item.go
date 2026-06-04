@@ -11,10 +11,12 @@ type OrderItem struct {
 	ID	int64	`gorm:"primaryKey;autoIncrement" json:"id" example:"1"`
 	OrderID	int64	`gorm:"column:order_id;not null" json:"order_id" example:"1"`
 	SKUID	int64	`gorm:"column:sku_id;default:0" json:"sku_id" example:"1"`
-	ProductName	string	`gorm:"column:product_name;type:varchar(100)" json:"product_name" example:"智能手机"`
-	SKUName	string	`gorm:"column:sku_name;type:varchar(100)" json:"sku_name" example:"智能手机-黑色-128G"`
+	ProductName	string	`gorm:"column:product_name;type:varchar(100)" json:"product_name" example:"真皮沙发"`
+	SKUName	string	`gorm:"column:sku_name;type:varchar(100)" json:"sku_name" example:"真皮沙发-棕色-三座"`
+	SKUCode	string	`gorm:"column:sku_code;type:varchar(50)" json:"sku_code" example:"SKU001"`
 	CategoryID	*int64	`gorm:"column:category_id" json:"category_id" example:"1"`
 	Quantity	int	`gorm:"column:quantity;default:0" json:"quantity" example:"10"`
+	ItemStatus	int8	`gorm:"column:item_status;default:0" json:"item_status"` // 0-正常, 1-新增, 2-移除
 	ListPrice	decimal.Decimal	`gorm:"column:list_price;type:decimal(12,2);default:0.00" json:"list_price" example:"2999.00"`
 	SalePrice	decimal.Decimal	`gorm:"column:sale_price;type:decimal(12,2);default:0.00" json:"sale_price" example:"2499.00"`
 	DiscountRate	decimal.Decimal	`gorm:"column:discount_rate;type:decimal(5,4);default:1.0000" json:"discount_rate" example:"0.8333"`
