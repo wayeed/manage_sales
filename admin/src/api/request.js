@@ -31,8 +31,8 @@ service.interceptors.request.use(
 service.interceptors.response.use(
   (response) => {
     const res = response.data
-    // 如果返回的状态码不是 200，说明接口有问题
-    if (res.code && res.code !== 200) {
+    // 如果返回的状态码不是 200 或 0（成功），说明接口有问题
+    if (res.code !== undefined && res.code !== null && res.code !== 200 && res.code !== 0) {
       ElMessage({
         message: res.message || '请求失败',
         type: 'error',

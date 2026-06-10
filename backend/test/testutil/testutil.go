@@ -19,7 +19,7 @@ func SetupTestDB() *gorm.DB {
 		MaxIdleConns: 5,
 		MaxOpenConns: 10,
 	}
-	err := database.InitDB(cfg)
+	err := database.InitDB(cfg, "debug")
 	if err != nil {
 		panic(err)
 	}

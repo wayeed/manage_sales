@@ -27,6 +27,7 @@ func SetupRouter() *gin.Engine {
 
 	// 全局中间件
 	r.Use(gin.Recovery())
+	r.Use(middleware.RateLimit())
 	r.Use(middleware.Cors())
 	r.Use(middleware.Logger())
 
@@ -271,11 +272,11 @@ func SetupRouter() *gin.Engine {
 		// ===== 仓库管理 =====
 		warehouses := auth.Group("/warehouses")
 		{
-			warehouses.GET("", warehouseHandler.List)         // 仓库列表
-			warehouses.POST("", warehouseHandler.Create)      // 创建仓库
-			warehouses.PUT(":id", warehouseHandler.Update)    // 更新仓库
-			warehouses.DELETE(":id", warehouseHandler.Delete) // 删除仓库
-			warehouses.GET(":id", warehouseHandler.GetByID)   // 仓库详情
+			warehouses.GET("", warehouseHandler.List)          // 仓库列表
+			warehouses.POST("", warehouseHandler.Create)       // 创建仓库
+			warehouses.PUT("/:id", warehouseHandler.Update)    // 更新仓库
+			warehouses.DELETE("/:id", warehouseHandler.Delete) // 删除仓库
+			warehouses.GET("/:id", warehouseHandler.GetByID)   // 仓库详情
 		}
 
 		// ===== 库存管理 =====

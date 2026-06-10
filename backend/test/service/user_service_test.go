@@ -64,7 +64,7 @@ func TestCreateUser(t *testing.T) {
 	assert.Equal(t, 5000.0, user.BaseSalary)
 
 	// 验证密码已加密
-	assert.Equal(t, appmd5.MD5Encode("123456"), user.Password)
+	assert.True(t, appmd5.CheckPassword("123456", user.Password))
 }
 
 func TestCreateUser_DuplicateUsername(t *testing.T) {
@@ -231,8 +231,8 @@ func TestResetPassword(t *testing.T) {
 	assert.Len(t, newPassword, 8)
 
 	updated, _ := userRepo.FindByID(user.ID)
-	assert.Equal(t, appmd5.MD5Encode(newPassword), updated.Password)
-	assert.NotEqual(t, appmd5.MD5Encode("oldpassword"), updated.Password)
+	assert.True(t, appmd5.CheckPassword(newPassword, updated.Password))
+	assert.False(t, appmd5.CheckPassword("oldpassword", updated.Password))
 }
 
 func TestResetPassword_NotFound(t *testing.T) {

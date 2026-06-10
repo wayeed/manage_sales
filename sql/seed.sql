@@ -27,10 +27,10 @@ INSERT INTO `roles` (`id`, `role_code`, `role_name`, `role_type`, `description`,
 -- ============================================================
 -- 3. 管理员账号
 --    username: admin
---    password: 123456 (MD5: e10adc3949ba59abbe56e057f20f883e)
+--    password: 123456 (bcrypt)
 -- ============================================================
 INSERT INTO `users` (`id`, `store_id`, `employee_no`, `username`, `password`, `real_name`, `phone`, `role`, `status`, `entry_date`, `is_formal`, `base_salary`, `created_by`) VALUES
-(1, 1, 'EMP001', 'admin', 'e10adc3949ba59abbe56e057f20f883e', '系统管理员', '13800000000', 5, 1, '2024-01-01', 1, 0.00, 1);
+(1, 1, 'EMP001', 'admin', '$2a$10$7xaz/QDlO1axD4kGdf6lre4PQ0hTV1/4lR3mc/vJBfcqZF0DhH2gq', '系统管理员', '13800000000', 5, 1, '2024-01-01', 1, 0.00, 1);
 
 -- 管理员关联老板角色
 INSERT INTO `user_roles` (`user_id`, `role_id`) VALUES

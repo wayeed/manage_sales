@@ -68,13 +68,14 @@ func seedTestData(t *testing.T, db *gorm.DB) {
 		db.Create(&perm)
 	}
 
-	// 创建测试用户
+	// 创建测试用户（密码使用 bcrypt 哈希）
+	bcryptPassword := "$2a$10$7xaz/QDlO1axD4kGdf6lre4PQ0hTV1/4lR3mc/vJBfcqZF0DhH2gq" // bcrypt("123456")
 	db.Exec("INSERT INTO users (id, employee_no, username, password, real_name, phone, role, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-		1, "EMP001", "admin", "e10adc3949ba59abbe56e057f20f883e", "管理员", "13800138000", 5, 1)
+		1, "EMP001", "admin", bcryptPassword, "管理员", "13800138000", 5, 1)
 	db.Exec("INSERT INTO users (id, employee_no, username, password, real_name, phone, role, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-		2, "EMP002", "disabled_user", "e10adc3949ba59abbe56e057f20f883e", "已禁用用户", "13800138001", 1, 0)
+		2, "EMP002", "disabled_user", bcryptPassword, "已禁用用户", "13800138001", 1, 0)
 	db.Exec("INSERT INTO users (id, employee_no, username, password, real_name, phone, role, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-		3, "EMP003", "normal_user", "e10adc3949ba59abbe56e057f20f883e", "普通用户", "13800138002", 1, 1)
+		3, "EMP003", "normal_user", bcryptPassword, "普通用户", "13800138002", 1, 1)
 
 	// 分配角色给admin用户
 	db.Create(&models.UserRole{UserID: 1, RoleID: 1})

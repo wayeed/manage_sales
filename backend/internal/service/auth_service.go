@@ -77,8 +77,8 @@ func (s *AuthService) Login(username, password, clientIP string) (*LoginResponse
 		}
 	}
 
-	// 验证密码（MD5）
-	if !appmd5.MD5Verify(password, user.Password) {
+	// 验证密码（bcrypt）
+	if !appmd5.CheckPassword(password, user.Password) {
 		return nil, &AppError{Code: apperrors.ErrPasswordWrong, Message: apperrors.GetMessage(apperrors.ErrPasswordWrong)}
 	}
 

@@ -116,11 +116,16 @@ func (s *UserService) Create(req *CreateUserRequest, createdBy int64) error {
 		}
 	}
 
+	hashedPassword, err := appmd5.HashPassword(req.Password)
+	if err != nil {
+		return &AppError{Code: apperrors.InternalError, Message: "密码加密失败"}
+	}
+
 	user := &models.User{
 		StoreID:     req.StoreID,
 		EmployeeNo:  req.EmployeeNo,
 		Username:    req.Username,
-		Password:    appmd5.MD5Encode(req.Password),
+		Password:    hashedPassword,
 		RealName:    req.RealName,
 		Phone:       req.Phone,
 		Email:       req.Email,
@@ -330,7 +335,10 @@ func (s *UserService) ResetPassword(id int64) (string, error) {
 
 	// 生成随机密码
 	newPassword := generateRandomPassword(8)
-	hashedPassword := appmd5.MD5Encode(newPassword)
+	hashedPassword, err := appmd5.HashPassword(newPassword)
+	if err != nil {
+		return "", &AppError{Code: apperrors.InternalError, Message: "密码加密失败"}
+	}
 
 	if err := s.db.Model(user).Update("password", hashedPassword).Error; err != nil {
 		return "", &AppError{Code: apperrors.InternalError, Message: "重置密码失败"}
@@ -350,7 +358,7 @@ func (s *UserService) ChangePassword(userID int64, oldPassword, newPassword stri
 	}
 
 	// 验证旧密码
-	if user.Password != appmd5.MD5Encode(oldPassword) {
+	if !appmd5.CheckPassword(oldPassword, user.Password) {
 		return &AppError{Code: apperrors.ErrPasswordWrong, Message: apperrors.GetMessage(apperrors.ErrPasswordWrong)}
 	}
 
@@ -360,7 +368,10 @@ func (s *UserService) ChangePassword(userID int64, oldPassword, newPassword stri
 	}
 
 	// 更新密码
-	hashedPassword := appmd5.MD5Encode(newPassword)
+	hashedPassword, err := appmd5.HashPassword(newPassword)
+	if err != nil {
+		return &AppError{Code: apperrors.InternalError, Message: "密码加密失败"}
+	}
 	if err := s.db.Model(user).Update("password", hashedPassword).Error; err != nil {
 		return &AppError{Code: apperrors.InternalError, Message: "修改密码失败"}
 	}

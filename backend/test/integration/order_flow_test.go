@@ -168,7 +168,7 @@ func (s *OrderFlowTestSuite) seedBaseData() {
 		StoreID:    intPtr64(1),
 		EmployeeNo: "EMP-100",
 		Username:   "store_manager",
-		Password:   "e10adc3949ba59abbe56e057f20f883e", // MD5("123456")
+		Password:   "$2a$10$7xaz/QDlO1axD4kGdf6lre4PQ0hTV1/4lR3mc/vJBfcqZF0DhH2gq", // bcrypt("123456")
 		RealName:   "店长",
 		Phone:      "13800000100",
 		Status:     1,
@@ -186,7 +186,7 @@ func (s *OrderFlowTestSuite) seedBaseData() {
 		StoreID:    intPtr64(1),
 		EmployeeNo: "EMP-010",
 		Username:   "salesman01",
-		Password:   "e10adc3949ba59abbe56e057f20f883e", // MD5("123456")
+		Password:   "$2a$10$7xaz/QDlO1axD4kGdf6lre4PQ0hTV1/4lR3mc/vJBfcqZF0DhH2gq", // bcrypt("123456")
 		RealName:   "业务员A",
 		Phone:      "13800000010",
 		Status:     1,

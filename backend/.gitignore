@@ -2,5 +2,25 @@
 .DS_Store
 Thumbs.db
 .trae/
-.env    
+.env
 uploads
+
+# 编译产物
+server
+server_linux
+*.exe
+
+# 排除含实际密码的配置文件（使用 config.example.yaml 作为模板）
+configs/config.yaml
+
+# 日志和备份（运行时生成）
+logs/
+backups/
+*.log
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~

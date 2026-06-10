@@ -150,7 +150,7 @@ CREATE TABLE `product_skus` (
     UNIQUE KEY `uk_sku_code` (`sku_code`),
     KEY `idx_product_id` (`product_id`),
     KEY `idx_barcode` (`barcode`),
-    KEY `idx_status` (`status`)
+    KEY `idx_status` (`status`),
     KEY `idx_product_sku_deleted_at` (`deleted_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='SKU表';
 
@@ -1219,3 +1219,31 @@ CREATE TABLE `system_backups` (
     KEY `idx_status` (`status`),
     KEY `idx_created_at` (`created_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='系统备份表';
+
+-- ============================================================
+-- 表48: outbound_requests - 出库申请表
+-- ============================================================
+DROP TABLE IF EXISTS `outbound_requests`;
+CREATE TABLE `outbound_requests` (
+  `id` bigint NOT NULL AUTO_INCREMENT,
+  `order_id` bigint NOT NULL COMMENT '订单ID',
+  `applicant_id` bigint NOT NULL COMMENT '申请人ID',
+  `applicant_name` varchar(50) NOT NULL COMMENT '申请人姓名',
+  `status` tinyint NOT NULL DEFAULT '0' COMMENT '状态:1=主管待审批,2=财务待审批,3=已拒绝,4=已通过',
+  `remaining_amount` decimal(12,2) DEFAULT '0.00' COMMENT '尾款金额',
+  `remaining_rate` float DEFAULT '0' COMMENT '尾款比例(%)',
+  `remark` varchar(500) DEFAULT '' COMMENT '申请备注（尾款>20%时自动填充）',
+  `supervisor_id` bigint DEFAULT NULL COMMENT '主管ID',
+  `supervisor_name` varchar(50) DEFAULT NULL COMMENT '主管姓名',
+  `supervisor_at` datetime DEFAULT NULL COMMENT '主管审批时间',
+  `supervisor_remark` varchar(500) DEFAULT NULL COMMENT '主管审批备注',
+  `finance_id` bigint DEFAULT NULL COMMENT '财务ID',
+  `finance_name` varchar(50) DEFAULT NULL COMMENT '财务姓名',
+  `finance_at` datetime DEFAULT NULL COMMENT '财务审批时间',
+  `finance_remark` varchar(500) DEFAULT NULL COMMENT '财务审批备注',
+  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `idx_outbound_requests_order_id` (`order_id`),
+  KEY `idx_outbound_requests_status` (`status`)
+) ENGINE=InnoDB AUTO_INCREMENT=4 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='出库申请';

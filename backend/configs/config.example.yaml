@@ -1,0 +1,30 @@
+server:
+  port: 8080
+  mode: release
+
+database:
+  host: 127.0.0.1
+  port: 3306
+  user: root
+  password: root
+  dbname: furniture_commission
+  max_idle_conns: 10
+  max_open_conns: 100
+
+jwt:
+  secret: your-secret-key-change-in-production
+  expire_hours: 24
+
+log:
+  level: info
+  file: logs/app.log
+
+cors:
+  allowed_origins:
+    - https://www.jiaju.com
+    - http://localhost:8080
+    - http://127.0.0.1:8080
+
+upload:
+  dir: ./uploads
+  base_url: http://localhost:8080/uploads

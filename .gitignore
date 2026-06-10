@@ -1,7 +1,75 @@
 
+# 操作系统文件
 .DS_Store
 Thumbs.db
-.trae/
-.env    
-*.py
+
+# IDE和编辑器
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# 环境变量
+.env
+.env.local
+.env.*.local
+
+# 前端依赖（admin和mobile）
+node_modules/
+**/node_modules/
+dist/
+build/
+**/dist/
+**/build/
+.vite-cache/
+
+# 后端
+## Go依赖
+vendor/
+go.sum
+
+## 日志和临时文件
+logs/
+*.log
+
+## 用户上传文件
+uploads/
+
+## 编译后的二进制文件
+server
+server_linux
+*.exe
+*.dll
+*.so
+
+## 数据库备份
+backups/
+
+# 临时和输出文件
+*.pyc
+*.pyo
+__pycache__/
 *.docx
+*.py
+
+# 构建输出
+dist/
+build/
+out/
+
+# 依赖缓存
+.npm/
+.yarn/cache/
+.cache/
+
+# OS相关
+.DS_Store
+.AppleDouble
+.LSOverride
+Thumbs.db
+desktop.ini
+
+# 其他
+.vscode/settings.json
+.trae/

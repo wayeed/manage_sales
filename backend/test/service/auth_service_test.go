@@ -69,12 +69,13 @@ func seedTestData(t *testing.T, db *gorm.DB) {
 		db.Create(&perm)
 	}
 
-	// 创建测试用户
+	// 创建测试用户（密码使用 bcrypt 哈希）
+	bcryptPassword := "$2a$10$7xaz/QDlO1axD4kGdf6lre4PQ0hTV1/4lR3mc/vJBfcqZF0DhH2gq" // bcrypt("123456")
 	users := []models.User{
 		{
 			ID:       1,
 			Username: "admin",
-			Password: "e10adc3949ba59abbe56e057f20f883e", // MD5("123456")
+			Password: bcryptPassword,
 			RealName: "管理员",
 			Phone:    "13800138000",
 			Role:     5,
@@ -83,7 +84,7 @@ func seedTestData(t *testing.T, db *gorm.DB) {
 		{
 			ID:       2,
 			Username: "disabled_user",
-			Password: "e10adc3949ba59abbe56e057f20f883e", // MD5("123456")
+			Password: bcryptPassword,
 			RealName: "已禁用用户",
 			Phone:    "13800138001",
 			Role:     1,
@@ -92,7 +93,7 @@ func seedTestData(t *testing.T, db *gorm.DB) {
 		{
 			ID:       3,
 			Username: "normal_user",
-			Password: "e10adc3949ba59abbe56e057f20f883e", // MD5("123456")
+			Password: bcryptPassword,
 			RealName: "普通用户",
 			Phone:    "13800138002",
 			Role:     1,

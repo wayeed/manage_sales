@@ -7,6 +7,7 @@ import (
 	"furniture-commission/configs"
 	"furniture-commission/internal/models"
 
+	"golang.org/x/crypto/bcrypt"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
@@ -15,7 +16,8 @@ import (
 var DB *gorm.DB
 
 // InitDB 初始化数据库连接
-func InitDB(cfg *configs.DatabaseConfig) error {
+// serverMode: debug/release/test，控制 SQL 日志输出级别
+func InitDB(cfg *configs.DatabaseConfig, serverMode string) error {
 	dsn := fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=utf8mb4&parseTime=True&loc=Local",
 		cfg.User,
 		cfg.Password,
@@ -24,9 +26,23 @@ func InitDB(cfg *configs.DatabaseConfig) error {
 		cfg.DBName,
 	)
 
+	// 根据运行模式设置 GORM SQL 日志级别
+	// debug: 打印所有 SQL（Info）
+	// release: 仅打印慢查询和错误（Warn）
+	// test: 静默（Silent）
+	gormLogLevel := logger.Warn
+	switch serverMode {
+	case "debug":
+		gormLogLevel = logger.Info
+	case "release":
+		gormLogLevel = logger.Warn
+	case "test":
+		gormLogLevel = logger.Silent
+	}
+
 	var err error
 	DB, err = gorm.Open(mysql.Open(dsn), &gorm.Config{
-		Logger:                                   logger.Default.LogMode(logger.Info),
+		Logger:                                   logger.Default.LogMode(gormLogLevel),
 		DisableForeignKeyConstraintWhenMigrating: true,
 	})
 	if err != nil {
@@ -188,6 +204,9 @@ func migrateColumns() {
 		}
 	}
 
+	// 迁移旧 MD5 密码到 bcrypt（仅处理未升级的记录）
+	migratePasswordsToBcrypt()
+
 	// 初始化角色数据（INSERT IGNORE 幂等）
 	seedRoles()
 
@@ -233,15 +252,17 @@ func autoMigrateNewTablesOnly() {
 // seedRoles 初始化角色数据到 roles 表
 func seedRoles() {
 	roles := []struct {
-		Code     string
-		Name     string
-		Sort     int
+		Code string
+		Name string
+		Sort int
 	}{
 		{"BOSS", "老板", 1},
-		{"STORE_MANAGER", "店长", 2},
-		{"FINANCE", "财务", 3},
-		{"SUPERVISOR", "主管", 4},
-		{"SALESMAN", "业务员", 5},
+		{"ADMIN", "管理员", 2},
+		{"STORE_MANAGER", "店长", 3},
+		{"FINANCE", "财务", 4},
+		{"SUPERVISOR", "主管", 5},
+		{"SALESMAN", "业务员", 6},
+		{"WAREHOUSE", "仓管", 7},
 	}
 
 	now := time.Now().Format("2006-01-02 15:04:05")
@@ -257,11 +278,11 @@ func seedPermissions() {
 	// permission_type: 1=菜单 2=按钮 3=接口
 	// 使用 INSERT IGNORE 避免重复插入
 	perms := []struct {
-		Code    string
-		Name    string
-		Type    int8
-		Parent  string
-		Sort    int
+		Code   string
+		Name   string
+		Type   int8
+		Parent string
+		Sort   int
 	}{
 		// ===== 用户管理 =====
 		{"user:create", "创建用户", 3, "", 101},
@@ -450,4 +471,45 @@ func seedCommissionConfigs() {
 	}
 
 	fmt.Printf("[INFO] 提成配置数据初始化完成，新增 %d 项\n", inserted)
+}
+
+// migratePasswordsToBcrypt 将数据库中旧的 MD5 密码升级为 bcrypt 哈希
+// MD5 哈希特征是 32 位十六进制字符串，bcrypt 以 "$2a$" 开头
+func migratePasswordsToBcrypt() {
+	var users []models.User
+	// 查找所有密码不是 bcrypt 格式的用户（bcrypt 哈希始终以 "$2a$" 开头）
+	if err := DB.Where("password NOT LIKE ?", "$2a$%").Find(&users).Error; err != nil {
+		fmt.Printf("[ERROR] 查询待迁移密码用户失败: %v\n", err)
+		return
+	}
+
+	migrated := 0
+	skipped := 0
+	for _, user := range users {
+		// 跳过空密码
+		if user.Password == "" {
+			skipped++
+			continue
+		}
+
+		// 对明文密码进行 bcrypt 哈希
+		// 注意：如果数据库中存储的是明文密码（非哈希），这会将明文视为密码进行哈希
+		// 如果存储的是 MD5 哈希（32位hex），系统将无法自动迁移（因为不知道原始密码）
+		// 对于种子数据中的 MD5 哈希密码，需要重新生成
+		hash, err := bcrypt.GenerateFromPassword([]byte(user.Password), bcrypt.DefaultCost)
+		if err != nil {
+			fmt.Printf("[ERROR] 用户 %d 密码迁移失败: %v\n", user.ID, err)
+			continue
+		}
+
+		if err := DB.Model(&models.User{}).Where("id = ?", user.ID).Update("password", string(hash)).Error; err != nil {
+			fmt.Printf("[ERROR] 用户 %d 密码迁移更新失败: %v\n", user.ID, err)
+			continue
+		}
+		migrated++
+	}
+
+	if migrated > 0 || skipped > 0 {
+		fmt.Printf("[INFO] 密码迁移完成：已升级 %d 条，跳过 %d 条（空密码）\n", migrated, skipped)
+	}
 }
