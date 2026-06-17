@@ -9,14 +9,20 @@ export { BASE_URL }
 const request = (options) => {
   return new Promise((resolve, reject) => {
     const token = uni.getStorageSync('token')
+    const csrfToken = uni.getStorageSync('csrf_token')
+    const headers = {
+      'Content-Type': 'application/json',
+      'Authorization': token ? `Bearer ${token}` : ''
+    }
+    // 非GET请求携带CSRF token
+    if ((options.method || 'GET') !== 'GET' && csrfToken) {
+      headers['X-CSRF-Token'] = csrfToken
+    }
     uni.request({
       url: BASE_URL + options.url,
       method: options.method || 'GET',
       data: options.data || {},
-      header: {
-        'Content-Type': 'application/json',
-        'Authorization': token ? `Bearer ${token}` : ''
-      },
+      header: headers,
       success: (res) => {
         // 处理 HTTP 状态码
         if (res.statusCode === 401) {

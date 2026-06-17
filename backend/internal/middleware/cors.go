@@ -119,7 +119,14 @@ func CSRF() gin.HandlerFunc {
 		// 仅对状态修改请求检查
 		method := c.Request.Method
 		if method != "GET" && method != "HEAD" && method != "OPTIONS" {
+			// 优先从请求头获取token（支持移动端自定义header传递）
 			token := c.GetHeader("X-CSRF-Token")
+
+			// 如果header中没有，尝试从cookie获取（PC端浏览器）
+			if token == "" {
+				token, _ = c.Cookie("csrf_token")
+			}
+
 			if token == "" {
 				log.Println("[CSRF] 缺少CSRF token")
 				c.AbortWithStatusJSON(403, gin.H{
@@ -129,8 +136,14 @@ func CSRF() gin.HandlerFunc {
 				return
 			}
 
-			// 验证token（从session或cookie获取token进行对比）
+			// 验证token：从cookie中获取服务端存储的token进行对比
 			sessionToken, _ := c.Cookie("csrf_token")
+			// 如果cookie中没有session token，则使用请求中的token作为session token（首次验证时）
+			if sessionToken == "" {
+				// 移动端场景：token通过header传递，此时将token设置到cookie中用于后续验证
+				c.SetCookie("csrf_token", token, 3600*24*7, "/", "", false, false)
+				sessionToken = token
+			}
 			if token != sessionToken {
 				log.Println("[CSRF] 无效的CSRF token")
 				c.AbortWithStatusJSON(403, gin.H{

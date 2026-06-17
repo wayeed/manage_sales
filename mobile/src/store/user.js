@@ -13,7 +13,13 @@ export const useUserStore = defineStore('user', () => {
 
   const login = async (data) => {
     const res = await loginApi(data)
-    setToken(res.data.token)
+    // 从登录响应中提取token和csrf_token
+    const respData = res.data || {}
+    setToken(respData.token)
+    // 保存CSRF token到storage
+    if (respData.csrf_token) {
+      uni.setStorageSync('csrf_token', respData.csrf_token)
+    }
     return res
   }
 

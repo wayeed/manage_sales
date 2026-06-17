@@ -106,7 +106,12 @@ func (h *AuthHandler) Login(c *gin.Context) {
 	// HttpOnly设为false，允许前端JavaScript读取cookie
 	c.SetCookie("csrf_token", csrfToken, 3600*24*7, "/", "", false, false)
 
-	Success(c, resp)
+	// 在响应体中也返回CSRF token，方便移动端H5获取
+	Success(c, gin.H{
+		"token":       resp.Token,
+		"user":        resp.User,
+		"csrf_token":  csrfToken,
+	})
 }
 
 // generateCSRFToken 生成CSRF token
