@@ -32,19 +32,31 @@
           </view>
         </view>
         <view class="inventory-body">
-          <view class="inventory-row">
-            <text class="inventory-label">SKU</text>
-            <text class="inventory-value">{{ item.sku || '--' }}</text>
+          <!--<text class="inventory-sku">{{ item.sku || '--' }}</text>-->
+          <view class="inventory-brand-row">
+            <text class="inventory-brand">{{ item.brand || '--' }}</text>
+            <text class="inventory-divider">|</text>
+            <text class="inventory-style">{{ item.style || '--' }}</text>
+            <text class="inventory-divider">|</text>
+            <text class="inventory-style">{{ item.sku || '--' }}</text>
           </view>
-          <view class="inventory-row">
-            <text class="inventory-label">总库存</text>
-            <text class="inventory-value">{{ item.totalStock || 0 }}</text>
-          </view>
-          <view class="inventory-row">
-            <text class="inventory-label">可用库存</text>
-            <text class="inventory-value" :class="{ 'inventory-value--danger': isLowStock(item) }">
-              {{ item.availableStock || 0 }}
-            </text>
+          <view class="inventory-stock-row">
+            <view class="stock-item">
+              <text class="stock-label">总库存</text>
+              <text class="stock-value">{{ item.totalStock || 0 }}</text>
+            </view>
+            <view class="stock-divider"></view>
+            <view class="stock-item">
+              <text class="stock-label">可用</text>
+              <text class="stock-value" :class="{ 'stock-value--danger': isLowStock(item) }">
+                {{ item.availableStock || 0 }}
+              </text>
+            </view>
+            <view class="stock-divider"></view>
+            <view class="stock-item">
+              <text class="stock-label">预警</text>
+              <text class="stock-value">{{ item.warningStock || 10 }}</text>
+            </view>
           </view>
         </view>
       </view>
@@ -118,7 +130,9 @@ export default {
         const mappedList = list.map(item => ({
           id: item.id,
           name: item.sku?.sku_name || item.sku?.product?.product_name || '--',
-          sku: item.sku?.sku_code || '--',
+          sku: item.sku?.product?.product_code || '--',
+          brand: item.sku?.product?.brand || '--',
+          style: item.sku?.product?.style || '--',
           totalStock: item.stock_quantity || 0,
           availableStock: item.available_quantity || 0,
           lockedQuantity: item.locked_quantity || 0,
@@ -262,6 +276,75 @@ export default {
 
 .inventory-body {
   margin-bottom: 8rpx;
+}
+
+.inventory-sku {
+  font-size: 26rpx;
+  color: #666666;
+  padding: 8rpx 0;
+}
+
+.inventory-brand-row {
+  display: flex;
+  align-items: center;
+  padding: 4rpx 0;
+}
+
+.inventory-brand {
+  font-size: 26rpx;
+  color: #666666;
+}
+
+.inventory-divider {
+  font-size: 24rpx;
+  color: #cccccc;
+  margin: 0 12rpx;
+}
+
+.inventory-style {
+  font-size: 26rpx;
+  color: #666666;
+}
+
+.inventory-stock-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12rpx 0;
+  margin-top: 8rpx;
+  background-color: #f8f9fa;
+  border-radius: 12rpx;
+  padding: 16rpx 20rpx;
+}
+
+.stock-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 1;
+}
+
+.stock-label {
+  font-size: 24rpx;
+  color: #999999;
+  margin-bottom: 4rpx;
+}
+
+.stock-value {
+  font-size: 28rpx;
+  color: #333333;
+  font-weight: 500;
+
+  &--danger {
+    color: #ff4d4f;
+    font-weight: bold;
+  }
+}
+
+.stock-divider {
+  width: 2rpx;
+  height: 48rpx;
+  background-color: #e0e0e0;
 }
 
 .inventory-row {

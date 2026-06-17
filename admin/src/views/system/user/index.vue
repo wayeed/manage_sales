@@ -414,12 +414,46 @@
         </el-button>
       </template>
     </el-dialog>
+
+    <!-- 密码重置结果弹窗 -->
+    <el-dialog
+      v-model="resetPwdResultDialogVisible"
+      title="密码重置成功"
+      width="420px"
+      :close-on-click-modal="false"
+      destroy-on-close
+    >
+      <div class="reset-result-content">
+        <el-icon :size="56" color="#67C23A" class="mb-16"><CircleCheckFilled /></el-icon>
+        <p class="result-title">用户 <strong>{{ currentUser?.real_name }}</strong> 的密码已重置</p>
+        <p class="result-tip">请将以下新密码告知用户，建议用户登录后立即修改</p>
+
+        <div class="password-display">
+          <el-input
+            v-model="newPassword"
+            readonly
+            size="large"
+            class="password-input"
+          >
+            <template #append>
+              <el-button @click="copyPassword">复制</el-button>
+            </template>
+          </el-input>
+        </div>
+      </div>
+      <template #footer>
+        <el-button type="primary" @click="resetPwdResultDialogVisible = false">
+          我知道了
+        </el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup>
 import { ref, reactive, onMounted, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { WarningFilled, CircleCheckFilled } from '@element-plus/icons-vue'
 import {
   getUserList,
   createUser,
@@ -720,6 +754,8 @@ const handleRoleSubmit = async () => {
 // ==================== 密码重置 ====================
 const resetPwdDialogVisible = ref(false)
 const resetPwdLoading = ref(false)
+const resetPwdResultDialogVisible = ref(false)
+const newPassword = ref('')
 
 const handleResetPassword = (row) => {
   currentUser.value = row
@@ -729,13 +765,51 @@ const handleResetPassword = (row) => {
 const confirmResetPassword = async () => {
   resetPwdLoading.value = true
   try {
-    await resetPassword(currentUser.value.id)
-    ElMessage.success('密码重置成功')
+    const res = await resetPassword(currentUser.value.id)
+    // 关闭确认弹窗
     resetPwdDialogVisible.value = false
+    // 显示新密码弹窗
+    newPassword.value = res.data?.new_password || res.data || ''
+    resetPwdResultDialogVisible.value = true
   } catch (error) {
     console.error('密码重置失败:', error)
+    ElMessage.error('密码重置失败')
   } finally {
     resetPwdLoading.value = false
+  }
+}
+
+// 复制密码到剪贴板
+const copyPassword = async () => {
+  try {
+    // 尝试使用现代API
+    if (navigator.clipboard && window.isSecureContext) {
+      await navigator.clipboard.writeText(newPassword.value)
+      ElMessage.success('密码已复制到剪贴板')
+      return
+    }
+
+    // 降级方案：使用传统方法
+    const textArea = document.createElement('textarea')
+    textArea.value = newPassword.value
+    textArea.style.position = 'fixed'
+    textArea.style.left = '-9999px'
+    textArea.style.top = '-9999px'
+    document.body.appendChild(textArea)
+    textArea.focus()
+    textArea.select()
+
+    const successful = document.execCommand('copy')
+    document.body.removeChild(textArea)
+
+    if (successful) {
+      ElMessage.success('密码已复制到剪贴板')
+    } else {
+      ElMessage.error('复制失败，请手动复制')
+    }
+  } catch (err) {
+    console.error('复制失败:', err)
+    ElMessage.error('复制失败，请手动复制')
   }
 }
 
@@ -857,6 +931,42 @@ onMounted(() => {
       margin-top: 12px;
       font-size: 15px;
       color: #303133;
+    }
+  }
+
+  .reset-result-content {
+    text-align: center;
+    padding: 8px 16px 24px;
+
+    .mb-16 {
+      margin-bottom: 16px;
+    }
+
+    .result-title {
+      font-size: 16px;
+      color: #303133;
+      margin-bottom: 8px;
+    }
+
+    .result-tip {
+      font-size: 13px;
+      color: #909399;
+      margin-bottom: 20px;
+    }
+
+    .password-display {
+      max-width: 300px;
+      margin: 0 auto;
+
+      .password-input {
+        font-size: 18px;
+        font-weight: 600;
+        letter-spacing: 2px;
+
+        :deep(.el-input__wrapper) {
+          background-color: #f5f7fa;
+        }
+      }
     }
   }
 

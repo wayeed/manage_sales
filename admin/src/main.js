@@ -9,6 +9,7 @@ import router from './router'
 import { createPinia } from 'pinia'
 import { permissionDirective } from './directives/permission'
 import { dialogDragDirective } from './directives/dialog-drag'
+import { initCsrfToken } from './api/request'
 import './styles/index.scss'
 
 const app = createApp(App)
@@ -26,4 +27,7 @@ app.use(createPinia())
 app.use(router)
 app.use(ElementPlus, { locale: zhCn })
 
-app.mount('#app')
+// 初始化CSRF token后再挂载应用
+initCsrfToken().then(() => {
+  app.mount('#app')
+})

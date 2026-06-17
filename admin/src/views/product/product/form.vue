@@ -131,13 +131,13 @@
           <el-col :span="6">
             <el-form-item label="进货价">
               <el-input-number
-                v-model="formData.reference_cost"
+                v-model="formData.cost_price"
                 :min="0"
                 :precision="2"
                 :step="10"
                 controls-position="right"
                 style="width: 100%"
-                @change="onReferenceCostChange"
+                @change="onCostPriceChange"
               />
             </el-form-item>
           </el-col>
@@ -156,15 +156,15 @@
             </el-form-item>
           </el-col>
           <el-col :span="6">
-            <el-form-item label="成本价">
+            <el-form-item label="参考成本价">
               <el-input-number
-                v-model="formData.cost_price"
+                v-model="formData.reference_cost"
                 :min="0"
                 :precision="2"
                 :step="10"
                 controls-position="right"
                 style="width: 100%"
-                @change="onCostPriceChange"
+                @change="onReferenceCostChange"
               />
             </el-form-item>
           </el-col>
@@ -549,28 +549,28 @@ const goBack = () => {
 // ========== 价格联动计算 ==========
 
 // 改进货价 → 自动按成本系数计算成本价
-const onReferenceCostChange = (val) => {
-  if (updating) return
-  updating = true
-  formData.cost_price = round2(Number(val) * Number(formData.total_cost_rate))
-  updating = false
-}
-
-// 改成本价 → 反算成本系数 = 成本价 / 进货价
 const onCostPriceChange = (val) => {
   if (updating) return
   updating = true
-  if (Number(formData.reference_cost) > 0) {
-    formData.total_cost_rate = round4(Number(val) / Number(formData.reference_cost))
+  formData.reference_cost = round2(Number(val) * Number(formData.total_cost_rate))
+  updating = false
+}
+
+// 改参考成本价 → 反算成本系数 = 参考成本价 / 进货价
+const onReferenceCostChange = (val) => {
+  if (updating) return
+  updating = true
+  if (Number(formData.cost_price) > 0) {
+    formData.total_cost_rate = round4(Number(val) / Number(formData.cost_price))
   }
   updating = false
 }
 
-// 改成本系数 → 自动重算成本价 = 进货价 × 成本系数
+// 改成本系数 → 自动重算参考成本价 = 进货价 × 成本系数
 const onCostRateChange = (val) => {
   if (updating) return
   updating = true
-  formData.cost_price = round2(Number(formData.reference_cost) * Number(val))
+  formData.reference_cost = round2(Number(formData.cost_price) * Number(val))
   updating = false
 }
 

@@ -50,7 +50,7 @@ func setupOrderTestService(t *testing.T) (*OrderService, *gorm.DB) {
 	peerRepo := repository.NewPeerRepository(db)
 	inventoryRepo := repository.NewInventoryRepository(db)
 	inventorySvc := NewInventoryService(db, inventoryRepo, nil, nil)
-	orderSvc := NewOrderService(db, orderRepo, paymentRepo, customerRepo, peerRepo, inventorySvc)
+	orderSvc := NewOrderService(db, orderRepo, paymentRepo, customerRepo, peerRepo, inventorySvc, nil, nil, nil)
 	return orderSvc, db
 }
 
@@ -146,14 +146,14 @@ func TestCreateSingleItemOrder(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, order)
 	assert.NotZero(t, order.ID)
-	assert.Equal(t, int8(0), order.OrderStatus) // 待审批
-	assert.Equal(t, int8(1), order.OrderType)   // 单品
+	assert.Equal(t, int8(0), order.OrderStatus)                               // 待审批
+	assert.Equal(t, int8(1), order.OrderType)                                 // 单品
 	assert.True(t, order.TotalListPrice.Equal(decimal.NewFromFloat(1000.00))) // 200*5
 	assert.True(t, order.TotalSalePrice.Equal(decimal.NewFromFloat(900.00)))  // 180*5
-	assert.True(t, order.DiscountAmount.Equal(decimal.Zero)) // 单品无折扣
+	assert.True(t, order.DiscountAmount.Equal(decimal.Zero))                  // 单品无折扣
 	assert.True(t, order.FinalAmount.Equal(decimal.NewFromFloat(900.00)))
-	assert.True(t, order.TotalCost.Equal(decimal.Zero))      // 创建时成本为0
-	assert.True(t, order.ActualProfit.Equal(decimal.Zero))   // 创建时利润为0
+	assert.True(t, order.TotalCost.Equal(decimal.Zero))    // 创建时成本为0
+	assert.True(t, order.ActualProfit.Equal(decimal.Zero)) // 创建时利润为0
 	assert.Equal(t, 1, order.CategoryCount)
 	assert.Equal(t, 1, order.SKUCount)
 	assert.Equal(t, 5, order.TotalQuantity)
@@ -178,10 +178,10 @@ func TestCreateMultiItemOrder(t *testing.T) {
 	catID1 := int64(1)
 	catID2 := int64(2)
 	req := &CreateOrderRequest{
-		StoreID:        1,
-		SalesmanID:     1,
-		CustomerName:   "测试客户",
-		CustomerPhone:  "13800138001",
+		StoreID:       1,
+		SalesmanID:    1,
+		CustomerName:  "测试客户",
+		CustomerPhone: "13800138001",
 		Items: []CreateOrderItemRequest{
 			{
 				SKUID:       100,
@@ -234,10 +234,10 @@ func TestApproveOrder(t *testing.T) {
 	// 创建订单
 	catID := int64(1)
 	req := &CreateOrderRequest{
-		StoreID:        1,
-		SalesmanID:     1,
-		CustomerName:   "测试客户",
-		CustomerPhone:  "13800138002",
+		StoreID:       1,
+		SalesmanID:    1,
+		CustomerName:  "测试客户",
+		CustomerPhone: "13800138002",
 		Items: []CreateOrderItemRequest{
 			{
 				SKUID:       100,
@@ -256,7 +256,7 @@ func TestApproveOrder(t *testing.T) {
 	assert.NotNil(t, order)
 
 	// 审核通过
-	err = orderSvc.ApproveOrder(order.ID, 2, true, "审核通过")
+	err = orderSvc.ApproveOrder(order.ID, 2, true, "审核通过", "", nil)
 	assert.NoError(t, err)
 
 	// 验证订单状态
@@ -298,10 +298,10 @@ func TestRejectOrder(t *testing.T) {
 	// 创建订单
 	catID := int64(1)
 	req := &CreateOrderRequest{
-		StoreID:        1,
-		SalesmanID:     1,
-		CustomerName:   "测试客户",
-		CustomerPhone:  "13800138003",
+		StoreID:       1,
+		SalesmanID:    1,
+		CustomerName:  "测试客户",
+		CustomerPhone: "13800138003",
 		Items: []CreateOrderItemRequest{
 			{
 				SKUID:       100,
@@ -326,7 +326,7 @@ func TestRejectOrder(t *testing.T) {
 	assert.Equal(t, 5, stockBefore.LockedQuantity)     // 0 + 5 = 5
 
 	// 审核驳回
-	err = orderSvc.ApproveOrder(order.ID, 2, false, "价格不合理")
+	err = orderSvc.ApproveOrder(order.ID, 2, false, "价格不合理", "", nil)
 	assert.NoError(t, err)
 
 	// 验证订单状态
@@ -353,10 +353,10 @@ func TestCancelOrder(t *testing.T) {
 	// 创建订单
 	catID := int64(1)
 	req := &CreateOrderRequest{
-		StoreID:        1,
-		SalesmanID:     1,
-		CustomerName:   "测试客户",
-		CustomerPhone:  "13800138004",
+		StoreID:       1,
+		SalesmanID:    1,
+		CustomerName:  "测试客户",
+		CustomerPhone: "13800138004",
 		Items: []CreateOrderItemRequest{
 			{
 				SKUID:       100,
@@ -401,10 +401,10 @@ func TestReturnOrder(t *testing.T) {
 	// 创建并审核通过订单
 	catID := int64(1)
 	req := &CreateOrderRequest{
-		StoreID:        1,
-		SalesmanID:     1,
-		CustomerName:   "测试客户",
-		CustomerPhone:  "13800138005",
+		StoreID:       1,
+		SalesmanID:    1,
+		CustomerName:  "测试客户",
+		CustomerPhone: "13800138005",
 		Items: []CreateOrderItemRequest{
 			{
 				SKUID:       100,
@@ -421,11 +421,11 @@ func TestReturnOrder(t *testing.T) {
 	order, err := orderSvc.CreateOrder(req, 1)
 	assert.NoError(t, err)
 
-	err = orderSvc.ApproveOrder(order.ID, 2, true, "审核通过")
+	err = orderSvc.ApproveOrder(order.ID, 2, true, "审核通过", "", nil)
 	assert.NoError(t, err)
 
 	// 退货处理
-	err = orderSvc.ReturnOrder(order.ID, 300.00, 100.00, "客户退货")
+	err = orderSvc.ReturnOrder(order.ID, 300.00, 100.00, 1, "客户退货", 1, "测试用户")
 	assert.NoError(t, err)
 
 	// 验证订单状态
@@ -448,10 +448,10 @@ func TestCreateOrderWithGift(t *testing.T) {
 
 	catID := int64(1)
 	req := &CreateOrderRequest{
-		StoreID:        1,
-		SalesmanID:     1,
-		CustomerName:   "测试客户",
-		CustomerPhone:  "13800138006",
+		StoreID:       1,
+		SalesmanID:    1,
+		CustomerName:  "测试客户",
+		CustomerPhone: "13800138006",
 		Items: []CreateOrderItemRequest{
 			{
 				SKUID:       100,
@@ -498,10 +498,10 @@ func TestApproveInvalidStatus(t *testing.T) {
 
 	catID := int64(1)
 	req := &CreateOrderRequest{
-		StoreID:        1,
-		SalesmanID:     1,
-		CustomerName:   "测试客户",
-		CustomerPhone:  "13800138007",
+		StoreID:       1,
+		SalesmanID:    1,
+		CustomerName:  "测试客户",
+		CustomerPhone: "13800138007",
 		Items: []CreateOrderItemRequest{
 			{
 				SKUID:       100,
@@ -519,11 +519,11 @@ func TestApproveInvalidStatus(t *testing.T) {
 	assert.NoError(t, err)
 
 	// 审核通过
-	err = orderSvc.ApproveOrder(order.ID, 2, true, "审核通过")
+	err = orderSvc.ApproveOrder(order.ID, 2, true, "审核通过", "", nil)
 	assert.NoError(t, err)
 
 	// 再次审核（应失败，因为状态已不是待审批）
-	err = orderSvc.ApproveOrder(order.ID, 2, true, "再次审核")
+	err = orderSvc.ApproveOrder(order.ID, 2, true, "再次审核", "", nil)
 	assert.Error(t, err)
 	appErr, ok := err.(*AppError)
 	assert.True(t, ok)
@@ -541,10 +541,10 @@ func TestCreateOrderInsufficientStock(t *testing.T) {
 
 	catID := int64(1)
 	req := &CreateOrderRequest{
-		StoreID:        1,
-		SalesmanID:     1,
-		CustomerName:   "测试客户",
-		CustomerPhone:  "13800138008",
+		StoreID:       1,
+		SalesmanID:    1,
+		CustomerName:  "测试客户",
+		CustomerPhone: "13800138008",
 		Items: []CreateOrderItemRequest{
 			{
 				SKUID:       100,
@@ -586,12 +586,12 @@ func TestPeerOrder(t *testing.T) {
 
 	catID := int64(1)
 	req := &CreateOrderRequest{
-		StoreID:        1,
-		SalesmanID:     1,
-		CustomerName:   "同行客户",
-		CustomerPhone:  "13800138009",
-		IsPeerOrder:    1,
-		PeerID:         &peer.ID,
+		StoreID:       1,
+		SalesmanID:    1,
+		CustomerName:  "同行客户",
+		CustomerPhone: "13800138009",
+		IsPeerOrder:   1,
+		PeerID:        &peer.ID,
 		Items: []CreateOrderItemRequest{
 			{
 				SKUID:       100,

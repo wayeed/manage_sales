@@ -77,26 +77,34 @@
             <view class="ps-item-body">
               <view class="ps-item-name-row" @tap.stop="toggleExpand(item)">
                 <text class="ps-item-name" :class="{ 'ps-item-name--expanded': item._expanded }">{{ item.sku_name || item.product?.product_name || '未命名' }}</text>
-                <text class="ps-item-expand-icon" :class="{ 'ps-item-expand-icon--up': item._expanded }">▾</text>
+                <view v-if="needExpandButton(item)" class="ps-item-expand-btn" :class="{ 'ps-item-expand-btn--up': item._expanded }">
+                  <text class="ps-expand-icon">▼</text>
+                  <text class="ps-expand-text">{{ item._expanded ? '收起' : '展开' }}</text>
+                </view>
+              </view>
+              <!-- 品牌和款式 -->
+              <view v-if="item.product?.brand || item.product?.style" class="ps-item-brand-row">
+                <text v-if="item.product?.brand" class="ps-item-brand">{{ item.product.brand }}</text>
+                <text v-if="item.product?.style" class="ps-item-style">{{ item.product.style }}</text>
               </view>
               <view class="ps-item-meta">
                 <text class="ps-item-sku">{{ item.sku_code }}</text>
                 <text v-if="item.barcode" class="ps-item-barcode">{{ item.barcode }}</text>
               </view>
               <view class="ps-item-bottom">
-                <text class="ps-item-price">¥{{ item.product?.list_price || '0.00' }}</text>
-                <text class="ps-item-stock" :class="{ 'ps-item-stock--empty': (item.available_stock || 0) <= 0 }">
-                  库存: {{ item.available_stock || 0 }}
-                </text>
+                <view class="ps-item-price-wrap">
+                  <text class="ps-item-price">¥{{ item.product?.list_price || '0.00' }}</text>
+                  <text class="ps-item-stock" :class="{ 'ps-item-stock--empty': (item.available_stock || 0) <= 0 }">
+                    库存: {{ item.available_stock || 0 }}
+                  </text>
+                </view>
+                <view v-if="isDisabled(item)" class="ps-item-badge-sm">
+                  <text class="ps-badge-text-sm">已选</text>
+                </view>
+                <view v-else class="ps-item-check-sm" :class="{ 'ps-item-check-sm--on': selectedId === item.id }" @tap.stop="selectProduct(item)">
+                  <text v-if="selectedId === item.id" class="ps-check-icon-sm">✓</text>
+                </view>
               </view>
-            </view>
-
-            <!-- 选中/禁用指示 -->
-            <view v-if="isDisabled(item)" class="ps-item-badge">
-              <text class="ps-badge-text">已选</text>
-            </view>
-            <view v-else class="ps-item-check" :class="{ 'ps-item-check--on': selectedId === item.id }">
-              <text v-if="selectedId === item.id" class="ps-check-icon">✓</text>
             </view>
           </view>
 
@@ -220,6 +228,20 @@ export default {
       return props.excludeIds.includes(item.id)
     }
 
+    const needExpandButton = (item) => {
+      const name = item.sku_name || item.product?.product_name || ''
+      let length = 0
+      for (let i = 0; i < name.length; i++) {
+        const char = name.charCodeAt(i)
+        if (char >= 0x4e00 && char <= 0x9fa5) {
+          length += 1
+        } else {
+          length += 0.5
+        }
+      }
+      return length > 15
+    }
+
     const selectProduct = (item) => {
       if (isDisabled(item)) {
         uni.showToast({ title: '该商品已添加', icon: 'none' })
@@ -254,6 +276,7 @@ export default {
       selectProduct,
       isDisabled,
       toggleExpand,
+      needExpandButton,
       close,
       confirm
     }
@@ -435,36 +458,41 @@ export default {
 
 /* ===== 商品条目 ===== */
 .ps-items {
-  padding: 0 24rpx;
+  padding: 24rpx;
 }
 
 .ps-item {
   display: flex;
-  align-items: center;
-  padding: 24rpx 16rpx;
-  margin-bottom: 2rpx;
-  border-radius: 16rpx;
-  transition: background 0.15s;
+  align-items: flex-start;
+  padding: 28rpx;
+  margin-bottom: 24rpx;
+  border-radius: 20rpx;
+  background: #fff;
+  box-shadow: 0 4rpx 20rpx rgba(0, 0, 0, 0.06);
+  transition: all 0.2s ease;
 
   &--active {
     background: #f0f7ff;
+    box-shadow: 0 4rpx 20rpx rgba(24, 144, 255, 0.15);
+    border: 2rpx solid #d6e4ff;
   }
 
   &--disabled {
-    opacity: 0.45;
+    opacity: 0.5;
     pointer-events: none;
   }
 }
 
 /* 缩略图 */
 .ps-item-thumb {
-  width: 120rpx;
-  height: 120rpx;
-  border-radius: 12rpx;
+  width: 130rpx;
+  height: 130rpx;
+  border-radius: 16rpx;
   overflow: hidden;
   flex-shrink: 0;
-  margin-right: 24rpx;
-  background: #f5f5f5;
+  margin-right: 28rpx;
+  background: #f8f8f8;
+  box-shadow: 0 2rpx 8rpx rgba(0, 0, 0, 0.08);
 }
 
 .ps-thumb-img {
@@ -517,19 +545,67 @@ export default {
   display: flex;
   align-items: flex-start;
   gap: 8rpx;
-  margin-bottom: 8rpx;
+  margin-bottom: 12rpx;
 }
 
-.ps-item-expand-icon {
-  font-size: 24rpx;
-  color: #bbb;
+/* 展开按钮 */
+.ps-item-expand-btn {
+  display: flex;
+  align-items: center;
+  gap: 6rpx;
+  padding: 6rpx 16rpx;
+  background: #f0f5ff;
+  border-radius: 20rpx;
+  margin-left: 12rpx;
+  transition: all 0.2s ease;
   flex-shrink: 0;
-  margin-top: 6rpx;
-  transition: transform 0.2s;
 
   &--up {
+    background: #e6f0ff;
+  }
+}
+
+.ps-expand-icon {
+  font-size: 20rpx;
+  color: #1890ff;
+  transition: transform 0.2s;
+
+  .ps-item-expand-btn--up & {
     transform: rotate(180deg);
   }
+}
+
+.ps-expand-text {
+  font-size: 22rpx;
+  color: #1890ff;
+  font-weight: 500;
+}
+
+/* 品牌和款式行 */
+.ps-item-brand-row {
+  display: flex;
+  align-items: center;
+  gap: 12rpx;
+  margin-bottom: 12rpx;
+  flex-wrap: wrap;
+}
+
+.ps-item-brand {
+  font-size: 24rpx;
+  color: #1890ff;
+  background: #e6f7ff;
+  padding: 4rpx 16rpx;
+  border-radius: 8rpx;
+  font-weight: 500;
+}
+
+.ps-item-style {
+  font-size: 24rpx;
+  color: #52c41a;
+  background: #f6ffed;
+  padding: 4rpx 16rpx;
+  border-radius: 8rpx;
+  font-weight: 500;
 }
 
 .ps-item-meta {
@@ -553,6 +629,12 @@ export default {
 }
 
 .ps-item-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.ps-item-price-wrap {
   display: flex;
   align-items: baseline;
   gap: 16rpx;
@@ -605,6 +687,43 @@ export default {
     background: #1890ff;
     border-color: #1890ff;
   }
+}
+
+
+
+/* 缩小版已选标记 */
+.ps-item-badge-sm {
+  padding: 4rpx 12rpx;
+  border-radius: 6rpx;
+  background: #f0f0f0;
+}
+
+.ps-badge-text-sm {
+  font-size: 20rpx;
+  color: #999;
+}
+
+/* 缩小版选择按钮 */
+.ps-item-check-sm {
+  width: 44rpx;
+  height: 44rpx;
+  border-radius: 50%;
+  border: 2rpx solid #ddd;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+
+  &--on {
+    background: #1890ff;
+    border-color: #1890ff;
+  }
+}
+
+.ps-check-icon-sm {
+  font-size: 22rpx;
+  color: #fff;
+  font-weight: bold;
 }
 
 .ps-check-icon {

@@ -1,6 +1,11 @@
 package router
 
 import (
+	"crypto/md5"
+	"fmt"
+	"math/rand"
+	"time"
+
 	"furniture-commission/configs"
 	"furniture-commission/internal/handler"
 	"furniture-commission/internal/middleware"
@@ -16,6 +21,21 @@ import (
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
 )
+
+// generateCSRFToken 生成CSRF token
+func generateCSRFToken() string {
+	return fmt.Sprintf("%x", md5.Sum([]byte(time.Now().String()+randString(16))))
+}
+
+// randString 生成随机字符串
+func randString(n int) string {
+	const letters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+	b := make([]byte, n)
+	for i := range b {
+		b[i] = letters[rand.Intn(len(letters))]
+	}
+	return string(b)
+}
 
 // SetupRouter 注册路由
 func SetupRouter() *gin.Engine {
@@ -75,7 +95,7 @@ func SetupRouter() *gin.Engine {
 
 	// 新增：商品管理与库存管理 Service
 	categoryService := service.NewCategoryService(categoryRepo)
-	productService := service.NewProductService(db, productRepo, configRepo)
+	productService := service.NewProductService(db, productRepo, configRepo, inventoryRepo, warehouseRepo)
 	skuService := service.NewSKUService(db, skuRepo)
 	warehouseService := service.NewWarehouseService(warehouseRepo)
 	inventoryService := service.NewInventoryService(db, inventoryRepo, skuRepo, warehouseRepo)
@@ -198,6 +218,17 @@ func SetupRouter() *gin.Engine {
 		})
 	})
 
+	// 获取CSRF token（公开）
+	r.GET("/api/csrf-token", func(c *gin.Context) {
+		// 生成并设置CSRF token到cookie
+		csrfToken := generateCSRFToken()
+		// HttpOnly设为false，允许前端JavaScript读取cookie
+		c.SetCookie("csrf_token", csrfToken, 3600*24*7, "/", "", false, false)
+		handler.Success(c, gin.H{
+			"message": "CSRF token set",
+		})
+	})
+
 	// 公开路由
 	public := r.Group("/api")
 	{
@@ -207,6 +238,7 @@ func SetupRouter() *gin.Engine {
 	// 需要认证的路由
 	auth := r.Group("/api")
 	auth.Use(middleware.Auth())
+	auth.Use(middleware.CSRF())
 	auth.Use(middleware.OperationLog(operationLogService, db))
 	{
 		// 登出
@@ -513,6 +545,7 @@ func SetupRouter() *gin.Engine {
 	// 管理员路由（基于权限码控制）
 	admin := r.Group("/api")
 	admin.Use(middleware.Auth())
+	admin.Use(middleware.CSRF())
 	admin.Use(middleware.OperationLog(operationLogService, db))
 	// RequireAdmin 保留作为兜底：拥有 admin 角色或任意管理权限即可访问
 	admin.Use(middleware.RequireRoleOrPermission(

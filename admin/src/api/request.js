@@ -10,7 +10,30 @@ const service = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
+  withCredentials: true,
 })
+
+// 从cookie中获取CSRF token
+const getCsrfToken = () => {
+  const cookies = document.cookie.split(';')
+  for (const cookie of cookies) {
+    const [name, value] = cookie.trim().split('=')
+    if (name === 'csrf_token') {
+      return value
+    }
+  }
+  return ''
+}
+
+// 初始化CSRF token
+export const initCsrfToken = async () => {
+  try {
+    // service已配置baseURL包含/api，所以这里只需/csrf-token
+    await service.get('/csrf-token')
+  } catch (error) {
+    console.error('获取CSRF token失败:', error)
+  }
+}
 
 // 请求拦截器
 service.interceptors.request.use(
@@ -18,6 +41,22 @@ service.interceptors.request.use(
     const token = getToken()
     if (token) {
       config.headers['Authorization'] = `Bearer ${token}`
+    }
+    
+    // 非GET请求需要添加CSRF token
+    if (config.method && config.method.toLowerCase() !== 'get') {
+      const csrfToken = getCsrfToken()
+      console.log('[CSRF] 请求方法:', config.method, 'URL:', config.url, 'token:', csrfToken ? '已获取' : '未获取')
+      if (csrfToken) {
+        config.headers['X-CSRF-Token'] = csrfToken
+      } else {
+        console.warn('[CSRF] 警告：CSRF token为空，尝试重新获取')
+        // 尝试重新获取CSRF token
+        initCsrfToken().then(() => {
+          const newToken = getCsrfToken()
+          console.log('[CSRF] 重新获取token:', newToken ? '成功' : '失败')
+        })
+      }
     }
     return config
   },

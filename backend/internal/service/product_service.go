@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	"furniture-commission/internal/models"
 	apperrors "furniture-commission/internal/pkg/errors"
@@ -18,79 +19,84 @@ import (
 
 // SKURequest SKU请求
 type SKURequest struct {
-	SKUCode   string          `json:"sku_code" example:"SKU001"`
-	SKUName   string          `json:"sku_name" example:"真皮沙发-红色"`
-	Attributes string         `json:"attributes" example:"{\"颜色\":\"红色\"}"`
-	Barcode   string          `json:"barcode" example:"6901234567890"`
-	SalePrice float64         `json:"sale_price" example:"8999.00"`
-	CostPrice float64         `json:"cost_price" example:"6000.00"`
+	SKUCode    string  `json:"sku_code" example:"SKU001"`
+	SKUName    string  `json:"sku_name" example:"真皮沙发-红色"`
+	Attributes string  `json:"attributes" example:"{\"颜色\":\"红色\"}"`
+	Barcode    string  `json:"barcode" example:"6901234567890"`
+	SalePrice  float64 `json:"sale_price" example:"8999.00"`
+	CostPrice  float64 `json:"cost_price" example:"6000.00"`
 }
 
 // CreateProductRequest 创建商品请求
 type CreateProductRequest struct {
-	StoreID int64 `json:"store_id" example:1`
-	CategoryID *int64 `json:"category_id" example:1`
-	ProductCode string `json:"product_code" example:"P001"`
-	ProductName string `json:"product_name" binding:"required" example:"真皮沙发"`
-	Brand string `json:"brand" example:"品牌A"`
-	Style string `json:"style" example:""`
-	Unit string `json:"unit" example:"件"`
-	Series string `json:"series" example:"现代系列"`
-	SubCategory string `json:"sub_category" example:"A"`
-	ProductImage string `json:"product_image" example:"https://example.com/product/sofa.jpg"`
-	Description string `json:"description" example:"高档真皮沙发，三座位"`
-	ListPrice float64 `json:"list_price" example:8999.00`
-	MinPrice float64 `json:"min_price" example:7200.00`
-	ReferenceCost float64 `json:"reference_cost" example:5000.00`
-	CostPrice float64 `json:"cost_price" example:6000.00`
-	TotalCostRate float64 `json:"total_cost_rate" example:1.20`
-	WarningStock int `json:"warning_stock" example:10`
-	SKUs []SKURequest `json:"skus"`
+	StoreID       int64        `json:"store_id" example:1`
+	CategoryID    *int64       `json:"category_id" example:1`
+	ProductCode   string       `json:"product_code" example:"P001"`
+	ProductName   string       `json:"product_name" binding:"required" example:"真皮沙发"`
+	Brand         string       `json:"brand" example:"品牌A"`
+	Style         string       `json:"style" example:""`
+	Unit          string       `json:"unit" example:"件"`
+	Series        string       `json:"series" example:"现代系列"`
+	SubCategory   string       `json:"sub_category" example:"A"`
+	ProductImage  string       `json:"product_image" example:"https://example.com/product/sofa.jpg"`
+	Description   string       `json:"description" example:"高档真皮沙发，三座位"`
+	ListPrice     float64      `json:"list_price" example:8999.00`
+	MinPrice      float64      `json:"min_price" example:7200.00`
+	ReferenceCost float64      `json:"reference_cost" example:5000.00`
+	CostPrice     float64      `json:"cost_price" example:6000.00`
+	TotalCostRate float64      `json:"total_cost_rate" example:1.20`
+	WarningStock  int          `json:"warning_stock" example:10`
+	SKUs          []SKURequest `json:"skus"`
 }
 
 // UpdateProductRequest 更新商品请求
 type UpdateProductRequest struct {
-	CategoryID *int64 `json:"category_id" example:1`
-	ProductName string `json:"product_name" example:"真皮沙发"`
-	Brand string `json:"brand" example:"品牌A"`
-	Style *string `json:"style" example:""`
-	Unit *string `json:"unit" example:"件"`
-	Series *string `json:"series" example:"现代系列"`
-	SubCategory *string `json:"sub_category" example:"A"`
-	ProductImage string `json:"product_image" example:"https://example.com/product/sofa.jpg"`
-	Description string `json:"description" example:"高档真皮沙发，三座位"`
-	ListPrice *float64 `json:"list_price" example:8999.00`
-	MinPrice *float64 `json:"min_price" example:7200.00`
-	ReferenceCost *float64 `json:"reference_cost" example:5000.00`
-	CostPrice *float64 `json:"cost_price" example:6000.00`
-	TotalCostRate *float64 `json:"total_cost_rate" example:1.20`
-	WarningStock *int `json:"warning_stock" example:10`
-	SKUs []SKURequest `json:"skus"`
+	CategoryID    *int64       `json:"category_id" example:1`
+	ProductName   string       `json:"product_name" example:"真皮沙发"`
+	Brand         string       `json:"brand" example:"品牌A"`
+	Style         *string      `json:"style" example:""`
+	Unit          *string      `json:"unit" example:"件"`
+	Series        *string      `json:"series" example:"现代系列"`
+	SubCategory   *string      `json:"sub_category" example:"A"`
+	ProductImage  string       `json:"product_image" example:"https://example.com/product/sofa.jpg"`
+	Description   string       `json:"description" example:"高档真皮沙发，三座位"`
+	ListPrice     *float64     `json:"list_price" example:8999.00`
+	MinPrice      *float64     `json:"min_price" example:7200.00`
+	ReferenceCost *float64     `json:"reference_cost" example:5000.00`
+	CostPrice     *float64     `json:"cost_price" example:6000.00`
+	TotalCostRate *float64     `json:"total_cost_rate" example:1.20`
+	WarningStock  *int         `json:"warning_stock" example:10`
+	SKUs          []SKURequest `json:"skus"`
 }
 
 // ListProductRequest 商品列表查询请求
 type ListProductRequest struct {
-	StoreID int64 `form:"store_id" example:1`
+	StoreID    int64  `form:"store_id" example:1`
 	CategoryID *int64 `form:"category_id" example:1`
-	Status *int8 `form:"status" example:1`
-	Keyword string `form:"keyword" example:"沙发"`
-	Page int `form:"page" example:1`
-	PageSize int `form:"page_size" example:10`
+	Status     *int8  `form:"status" example:1`
+	Keyword    string `form:"keyword" example:"沙发"`
+	Page       int    `form:"page" example:1`
+	PageSize   int    `form:"page_size" example:10`
 }
 
 // ProductService 商品服务
 type ProductService struct {
-	db          *gorm.DB
-	productRepo *repository.ProductRepository
-	configRepo  *repository.SystemConfigRepository
+	db            *gorm.DB
+	productRepo   *repository.ProductRepository
+	configRepo    *repository.SystemConfigRepository
+	inventoryRepo *repository.InventoryRepository
+	warehouseRepo *repository.WarehouseRepository
 }
 
 // NewProductService 创建商品服务实例
-func NewProductService(db *gorm.DB, productRepo *repository.ProductRepository, configRepo *repository.SystemConfigRepository) *ProductService {
+func NewProductService(db *gorm.DB, productRepo *repository.ProductRepository, configRepo *repository.SystemConfigRepository,
+	inventoryRepo *repository.InventoryRepository, warehouseRepo *repository.WarehouseRepository) *ProductService {
 	return &ProductService{
-		db:          db,
-		productRepo: productRepo,
-		configRepo:  configRepo,
+		db:            db,
+		productRepo:   productRepo,
+		configRepo:    configRepo,
+		inventoryRepo: inventoryRepo,
+		warehouseRepo: warehouseRepo,
 	}
 }
 
@@ -109,24 +115,30 @@ func (s *ProductService) getConfigRate(key string, defaultVal float64) float64 {
 }
 
 // Create 创建商品
-func (s *ProductService) Create(req *CreateProductRequest, createdBy int64) error {
+func (s *ProductService) Create(req *CreateProductRequest, createdBy int64) (int64, error) {
 	// 检查编码是否重复
 	if existing, _ := s.productRepo.FindByCode(req.StoreID, req.ProductCode); existing != nil {
-		return &AppError{Code: apperrors.ErrDuplicateKey, Message: "商品编码已存在"}
+		return 0, &AppError{Code: apperrors.ErrDuplicateKey, Message: "商品编码已存在"}
+	}
+
+	// 进货价(CostPrice)为必填项
+	if req.CostPrice <= 0 {
+		return 0, &AppError{Code: apperrors.ErrDuplicateKey, Message: "进货价（成本价）为必填项"}
 	}
 
 	// 获取系统配置的系数
 	costRate := s.getConfigRate("cost_rate", 1.2)
 	minDiscountRate := s.getConfigRate("min_discount_rate", 0.9)
 
-	// 自动计算成本价：如果没传 cost_price，则 = 进货价 × 成本系数
+	// 自动计算参考成本价：如果未传入 reference_cost，则参考成本价 = 进货价 × 成本系数
 	costPrice := req.CostPrice
 	totalCostRate := req.TotalCostRate
 	if totalCostRate <= 0 {
 		totalCostRate = costRate
 	}
-	if costPrice <= 0 && req.ReferenceCost > 0 {
-		costPrice = req.ReferenceCost * totalCostRate
+	referenceCost := req.ReferenceCost
+	if referenceCost <= 0 && costPrice > 0 {
+		referenceCost = costPrice * totalCostRate
 	}
 
 	// 自动计算最低价：如果没传 min_price，则 = 挂牌价 × 最低折扣系数
@@ -149,7 +161,7 @@ func (s *ProductService) Create(req *CreateProductRequest, createdBy int64) erro
 		Description:   req.Description,
 		ListPrice:     decimal.NewFromFloat(req.ListPrice),
 		MinPrice:      decimal.NewFromFloat(minPrice),
-		ReferenceCost: decimal.NewFromFloat(req.ReferenceCost),
+		ReferenceCost: decimal.NewFromFloat(referenceCost),
 		CostPrice:     decimal.NewFromFloat(costPrice),
 		TotalCostRate: decimal.NewFromFloat(totalCostRate),
 		WarningStock:  req.WarningStock,
@@ -170,29 +182,29 @@ func (s *ProductService) Create(req *CreateProductRequest, createdBy int64) erro
 		}
 
 		// 创建SKU
-			if len(req.SKUs) > 0 {
-				for _, skuReq := range req.SKUs {
-					sku := &models.ProductSKU{
-						ProductID:  product.ID,
-						SKUCode:    skuReq.SKUCode,
-						SKUName:    skuReq.SKUName,
-						Attributes: datatypes.JSON(skuReq.Attributes),
-						Barcode:    skuReq.Barcode,
-						Status:     1,
-					}
-					if err := tx.Create(sku).Error; err != nil {
-						return err
-					}
+		if len(req.SKUs) > 0 {
+			for _, skuReq := range req.SKUs {
+				sku := &models.ProductSKU{
+					ProductID:  product.ID,
+					SKUCode:    skuReq.SKUCode,
+					SKUName:    skuReq.SKUName,
+					Attributes: datatypes.JSON(skuReq.Attributes),
+					Barcode:    skuReq.Barcode,
+					Status:     1,
+				}
+				if err := tx.Create(sku).Error; err != nil {
+					return err
 				}
 			}
+		}
 
 		return nil
 	})
 
 	if err != nil {
-		return &AppError{Code: apperrors.InternalError, Message: "创建商品失败"}
+		return 0, &AppError{Code: apperrors.InternalError, Message: "创建商品失败"}
 	}
-	return nil
+	return product.ID, nil
 }
 
 // Update 更新商品
@@ -366,13 +378,6 @@ func (s *ProductService) List(req *ListProductRequest) (*PageResult, error) {
 		return nil, &AppError{Code: apperrors.InternalError, Message: "查询商品列表失败"}
 	}
 
-	// 自动计算成本价 = 进货价 × 成本系数
-	for i := range products {
-		if products[i].TotalCostRate.GreaterThan(decimal.Zero) {
-			products[i].CostPrice = products[i].ReferenceCost.Mul(products[i].TotalCostRate)
-		}
-	}
-
 	page := req.Page
 	pageSize := req.PageSize
 	if page <= 0 {
@@ -398,10 +403,6 @@ func (s *ProductService) GetDetail(id int64) (*models.Product, error) {
 			return nil, &AppError{Code: apperrors.NotFound, Message: "商品不存在"}
 		}
 		return nil, &AppError{Code: apperrors.InternalError, Message: "系统错误"}
-	}
-	// 自动计算成本价 = 进货价 × 成本系数
-	if product.TotalCostRate.GreaterThan(decimal.Zero) {
-		product.CostPrice = product.ReferenceCost.Mul(product.TotalCostRate)
 	}
 	return product, nil
 }
@@ -556,18 +557,141 @@ func (s *ProductService) BatchImport(storeID int64, createdBy int64, fileData []
 			Series:        row.Series,
 			SubCategory:   row.SubCategory,
 			ListPrice:     row.ListPrice,
+			CostPrice:     row.CostPrice, // 进货价
+			MinPrice:      row.MinPrice,  // 最低售价
 			ReferenceCost: row.ReferenceCost,
 			TotalCostRate: row.TotalCostRate,
 			WarningStock:  row.WarningStock,
 			SKUs:          skus,
 		}
 
-		if err := s.Create(req, createdBy); err != nil {
+		// 创建商品
+		productID, err := s.Create(req, createdBy)
+		if err != nil {
 			result.Errors = append(result.Errors, ImportError{
 				Row: row.Row, Code: code, Message: err.Error(),
 			})
 			result.FailCount++
 			continue
+		}
+
+		// 多仓库库存导入
+		warehouseStocks := row.GetWarehouseStocks()
+		if len(warehouseStocks) > 0 {
+			// 获取第一个SKU的ID（因为导入时每个规格颜色组合生成一个SKU）
+			var firstSKU models.ProductSKU
+			if err := s.db.Where("product_id = ?", productID).First(&firstSKU).Error; err != nil {
+				result.Errors = append(result.Errors, ImportError{
+					Row: row.Row, Code: code, Message: "获取SKU失败",
+				})
+				result.FailCount++
+				result.SuccessCount++ // 商品创建成功，库存导入失败
+				continue
+			}
+
+			// 遍历每个仓库
+			for _, ws := range warehouseStocks {
+				// 查找仓库ID
+				var warehouse models.Warehouse
+				if err := s.db.Where("warehouse_name = ?", ws.WarehouseName).First(&warehouse).Error; err != nil {
+					result.Errors = append(result.Errors, ImportError{
+						Row: row.Row, Code: code,
+						Message: fmt.Sprintf("仓库名称[%s]不存在", ws.WarehouseName),
+					})
+					result.FailCount++
+					continue
+				}
+
+				// 创建库存批次
+				now := time.Now()
+				batchNo := fmt.Sprintf("IMP%s%d%d", now.Format("20060102150405"), firstSKU.ID, warehouse.ID)
+				batch := &models.InventoryBatch{
+					SKUID:             firstSKU.ID,
+					BatchNo:           batchNo,
+					PurchaseOrderID:   nil,
+					PurchasePrice:     decimal.Zero,
+					TotalCost:         decimal.Zero,
+					InitialQuantity:   ws.StockQuantity,
+					RemainingQuantity: ws.StockQuantity,
+					WarehouseID:       &warehouse.ID,
+					Status:            1,
+					EntryDate:         &now,
+				}
+				if err := s.inventoryRepo.CreateBatch(batch); err != nil {
+					result.Errors = append(result.Errors, ImportError{
+						Row: row.Row, Code: code,
+						Message: fmt.Sprintf("仓库[%s]创建库存批次失败", ws.WarehouseName),
+					})
+					result.FailCount++
+					continue
+				}
+
+				// 更新或创建仓库库存记录
+				stock, err := s.inventoryRepo.FindStockByWarehouseAndSKU(warehouse.ID, firstSKU.ID)
+				if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+					result.Errors = append(result.Errors, ImportError{
+						Row: row.Row, Code: code,
+						Message: fmt.Sprintf("仓库[%s]查询库存失败", ws.WarehouseName),
+					})
+					result.FailCount++
+					continue
+				}
+
+				if stock == nil {
+					newStock := &models.WarehouseStock{
+						WarehouseID:       warehouse.ID,
+						SKUID:             firstSKU.ID,
+						StockQuantity:     ws.StockQuantity,
+						AvailableQuantity: ws.StockQuantity,
+						LockedQuantity:    0,
+						WarningStock:      row.WarningStock,
+						Version:           0,
+					}
+					if err := s.inventoryRepo.CreateStock(newStock); err != nil {
+						result.Errors = append(result.Errors, ImportError{
+							Row: row.Row, Code: code,
+							Message: fmt.Sprintf("仓库[%s]创建库存记录失败", ws.WarehouseName),
+						})
+						result.FailCount++
+						continue
+					}
+				} else {
+					_, err := s.inventoryRepo.UpdateStockWithLock(warehouse.ID, firstSKU.ID, stock.Version, map[string]interface{}{
+						"stock_quantity":     gorm.Expr("stock_quantity + ?", ws.StockQuantity),
+						"available_quantity": gorm.Expr("available_quantity + ?", ws.StockQuantity),
+						"version":            gorm.Expr("version + 1"),
+					})
+					if err != nil {
+						result.Errors = append(result.Errors, ImportError{
+							Row: row.Row, Code: code,
+							Message: fmt.Sprintf("仓库[%s]更新库存失败", ws.WarehouseName),
+						})
+						result.FailCount++
+						continue
+					}
+				}
+
+				// 记录库存流水
+				beforeStock := 0
+				if stock != nil {
+					beforeStock = stock.StockQuantity
+				}
+				tx := &models.InventoryTransaction{
+					StoreID:         storeID,
+					WarehouseID:     &warehouse.ID,
+					TransactionType: 13,
+					BizType:         1,
+					BizID:           &firstSKU.ID,
+					BatchID:         &batch.ID,
+					Quantity:        ws.StockQuantity,
+					BeforeStock:     beforeStock,
+					AfterStock:      beforeStock + ws.StockQuantity,
+					Remark:          "批量导入库存",
+					CreatedBy:       int64Ptr(createdBy),
+					CreatedAt:       now,
+				}
+				s.inventoryRepo.CreateTransaction(tx)
+			}
 		}
 
 		result.SuccessCount++

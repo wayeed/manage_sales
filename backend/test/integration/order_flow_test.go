@@ -19,25 +19,25 @@ import (
 // OrderFlowTestSuite 端到端订单流程测试套件
 type OrderFlowTestSuite struct {
 	suite.Suite
-	db              *gorm.DB
-	authSvc         *svc.AuthService
-	orderSvc        *svc.OrderService
-	paymentSvc      *svc.PaymentService
-	commissionSvc   *svc.CommissionService
-	salarySvc       *svc.SalaryService
-	inventorySvc    *svc.InventoryService
-	configSvc       *svc.ConfigService
-	customerSvc     *svc.CustomerService
-	userRepo        *repository.UserRepository
-	permRepo        *repository.PermissionRepository
-	orderRepo       *repository.OrderRepository
-	paymentRepo     *repository.PaymentRepository
-	commissionRepo  *repository.CommissionRepository
-	salaryRepo      *repository.SalaryRecordRepository
-	fundPoolRepo    *repository.FundPoolRepository
-	inventoryRepo   *repository.InventoryRepository
-	configRepo      *repository.SystemConfigRepository
-	customerRepo    *repository.CustomerRepository
+	db             *gorm.DB
+	authSvc        *svc.AuthService
+	orderSvc       *svc.OrderService
+	paymentSvc     *svc.PaymentService
+	commissionSvc  *svc.CommissionService
+	salarySvc      *svc.SalaryService
+	inventorySvc   *svc.InventoryService
+	configSvc      *svc.ConfigService
+	customerSvc    *svc.CustomerService
+	userRepo       *repository.UserRepository
+	permRepo       *repository.PermissionRepository
+	orderRepo      *repository.OrderRepository
+	paymentRepo    *repository.PaymentRepository
+	commissionRepo *repository.CommissionRepository
+	salaryRepo     *repository.SalaryRecordRepository
+	fundPoolRepo   *repository.FundPoolRepository
+	inventoryRepo  *repository.InventoryRepository
+	configRepo     *repository.SystemConfigRepository
+	customerRepo   *repository.CustomerRepository
 }
 
 func (s *OrderFlowTestSuite) SetupSuite() {
@@ -100,8 +100,8 @@ func (s *OrderFlowTestSuite) SetupSuite() {
 	s.commissionSvc = svc.NewCommissionService(db, s.commissionRepo, s.orderRepo, referralRepo, s.configSvc)
 	s.inventorySvc = svc.NewInventoryService(db, s.inventoryRepo, nil, nil)
 	s.customerSvc = svc.NewCustomerService(db, s.customerRepo)
-	s.orderSvc = svc.NewOrderService(db, s.orderRepo, s.paymentRepo, s.customerRepo, nil, s.inventorySvc)
-	s.paymentSvc = svc.NewPaymentService(db, s.paymentRepo, s.orderRepo)
+	s.orderSvc = svc.NewOrderService(db, s.orderRepo, s.paymentRepo, s.customerRepo, nil, s.inventorySvc, nil, nil, nil)
+	s.paymentSvc = svc.NewPaymentService(db, s.paymentRepo, s.orderRepo, s.commissionSvc)
 	s.salarySvc = svc.NewSalaryService(db, s.salaryRepo, s.commissionRepo, s.fundPoolRepo)
 
 	// 初始化JWT配置
@@ -172,7 +172,7 @@ func (s *OrderFlowTestSuite) seedBaseData() {
 		RealName:   "店长",
 		Phone:      "13800000100",
 		Status:     1,
-		BaseSalary: 8000,
+		BaseSalary: decimal.NewFromFloat(8000),
 	}
 	s.db.Create(storeManager)
 
@@ -190,7 +190,7 @@ func (s *OrderFlowTestSuite) seedBaseData() {
 		RealName:   "业务员A",
 		Phone:      "13800000010",
 		Status:     1,
-		BaseSalary: 3000,
+		BaseSalary: decimal.NewFromFloat(3000),
 	}
 	s.db.Create(salesman)
 
@@ -257,10 +257,10 @@ func (s *OrderFlowTestSuite) TestOrderFullFlow() {
 	// ========== 步骤2: 创建订单 ==========
 	catID := int64(1)
 	createOrderReq := &svc.CreateOrderRequest{
-		StoreID:        1,
-		SalesmanID:     10,
-		CustomerName:   "流程测试客户",
-		CustomerPhone:  "13800139000",
+		StoreID:         1,
+		SalesmanID:      10,
+		CustomerName:    "流程测试客户",
+		CustomerPhone:   "13800139000",
 		CustomerAddress: "测试地址",
 		Items: []svc.CreateOrderItemRequest{
 			{
@@ -280,16 +280,16 @@ func (s *OrderFlowTestSuite) TestOrderFullFlow() {
 	s.NotNil(order)
 	s.NotZero(order.ID)
 	s.Equal(int8(0), order.OrderStatus) // 待审批
-	s.True(s.orderSvc != nil) // 确保服务可用
+	s.True(s.orderSvc != nil)           // 确保服务可用
 
 	// 验证库存已锁定
 	var stock models.WarehouseStock
 	s.db.Where("warehouse_id = ? AND sku_id = ?", 1, 100).First(&stock)
-	s.Equal(95, stock.AvailableQuantity)  // 100 - 5 = 95
+	s.Equal(95, stock.AvailableQuantity) // 100 - 5 = 95
 	s.Equal(5, stock.LockedQuantity)     // 0 + 5 = 5
 
 	// ========== 步骤3: 审核通过 ==========
-	err = s.orderSvc.ApproveOrder(order.ID, 100, true, "审核通过")
+	err = s.orderSvc.ApproveOrder(order.ID, 100, true, "审核通过", "", nil)
 	s.NoError(err)
 
 	// 验证订单状态
@@ -304,20 +304,20 @@ func (s *OrderFlowTestSuite) TestOrderFullFlow() {
 
 	// 验证库存扣减
 	s.db.Where("warehouse_id = ? AND sku_id = ?", 1, 100).First(&stock)
-	s.Equal(95, stock.StockQuantity)      // 100 - 5 = 95
-	s.Equal(95, stock.AvailableQuantity)  // 95 (锁定已转为扣减)
+	s.Equal(95, stock.StockQuantity)     // 100 - 5 = 95
+	s.Equal(95, stock.AvailableQuantity) // 95 (锁定已转为扣减)
 	s.Equal(0, stock.LockedQuantity)     // 5 - 5 = 0
 
 	// ========== 步骤4: 录入回款 ==========
 	paymentReq := &svc.CreatePaymentRequest{
 		OrderID:       order.ID,
-		Amount:        900.00, // 全额回款
+		Amount:        "900.00", // 全额回款
 		PaymentDate:   time.Now().Format("2006-01-02"),
 		PaymentMethod: 1,
 		Remark:        "全额回款",
 	}
 
-	err = s.paymentSvc.CreatePayment(paymentReq, 10)
+	err = s.paymentSvc.CreatePayment(paymentReq, 10, []string{})
 	s.NoError(err)
 
 	// 获取回款记录
@@ -326,7 +326,7 @@ func (s *OrderFlowTestSuite) TestOrderFullFlow() {
 	s.Len(payments, 1)
 
 	// 审核回款
-	err = s.paymentSvc.ApprovePayment(payments[0].ID, 100, true)
+	err = s.paymentSvc.ApprovePayment(payments[0].ID, 100, true, "")
 	s.NoError(err)
 
 	// 验证订单回款状态
@@ -410,18 +410,18 @@ func (s *OrderFlowTestSuite) TestOrderFullFlow_WithPaymentValidation() {
 	s.NoError(err)
 
 	// 审核通过
-	err = s.orderSvc.ApproveOrder(order.ID, 100, true, "审核通过")
+	err = s.orderSvc.ApproveOrder(order.ID, 100, true, "审核通过", "", nil)
 	s.NoError(err)
 
 	// 部分回款
 	payReq1 := &svc.CreatePaymentRequest{
 		OrderID: order.ID,
-		Amount:  200.00,
+		Amount:  "200.00",
 	}
-	s.paymentSvc.CreatePayment(payReq1, 10)
+	s.paymentSvc.CreatePayment(payReq1, 10, []string{})
 
 	payments, _ := s.paymentSvc.GetByOrderID(order.ID)
-	s.paymentSvc.ApprovePayment(payments[0].ID, 100, true)
+	s.paymentSvc.ApprovePayment(payments[0].ID, 100, true, "")
 
 	// 验证部分回款状态
 	updatedOrder, _ := s.orderRepo.FindByID(order.ID)
@@ -431,9 +431,9 @@ func (s *OrderFlowTestSuite) TestOrderFullFlow_WithPaymentValidation() {
 	// 剩余回款 - 一次性全额回款
 	payReq2 := &svc.CreatePaymentRequest{
 		OrderID: order.ID,
-		Amount:  160.00, // 360 - 200 = 160
+		Amount:  "160.00", // 360 - 200 = 160
 	}
-	err = s.paymentSvc.CreatePayment(payReq2, 10)
+	err = s.paymentSvc.CreatePayment(payReq2, 10, []string{})
 	s.NoError(err) // 确保第二次回款也成功
 
 	payments, _ = s.paymentSvc.GetByOrderID(order.ID)
@@ -441,7 +441,7 @@ func (s *OrderFlowTestSuite) TestOrderFullFlow_WithPaymentValidation() {
 	// 审核第二笔回款（找到未审核的那条）
 	for _, p := range payments {
 		if p.Status == 0 {
-			err = s.paymentSvc.ApprovePayment(p.ID, 100, true)
+			err = s.paymentSvc.ApprovePayment(p.ID, 100, true, "")
 			s.NoError(err)
 		}
 	}
@@ -483,7 +483,7 @@ func (s *OrderFlowTestSuite) TestOrderFullFlow_PartialPaymentAndCommission() {
 	s.NoError(err)
 
 	// 审核通过
-	err = s.orderSvc.ApproveOrder(order.ID, 100, true, "审核通过")
+	err = s.orderSvc.ApproveOrder(order.ID, 100, true, "审核通过", "", nil)
 	s.NoError(err)
 
 	// 验证利润：final_amount(1800) - total_cost(1000) = 800
@@ -493,12 +493,12 @@ func (s *OrderFlowTestSuite) TestOrderFullFlow_PartialPaymentAndCommission() {
 	// 部分回款
 	payReq := &svc.CreatePaymentRequest{
 		OrderID: order.ID,
-		Amount:  1000.00,
+		Amount:  "1000.00",
 	}
-	s.paymentSvc.CreatePayment(payReq, 10)
+	s.paymentSvc.CreatePayment(payReq, 10, []string{})
 
 	payments, _ := s.paymentSvc.GetByOrderID(order.ID)
-	s.paymentSvc.ApprovePayment(payments[0].ID, 100, true)
+	s.paymentSvc.ApprovePayment(payments[0].ID, 100, true, "")
 
 	// 生成提成
 	err = s.commissionSvc.CalculateOrderCommission(order.ID)

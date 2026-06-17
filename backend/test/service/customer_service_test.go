@@ -118,12 +118,12 @@ func TestAddFollowUp(t *testing.T) {
 
 	// 添加跟进记录
 	followUpReq := &svc.AddFollowUpRequest{
-		CustomerID: customer.ID,
-		FollowType: 1,
-		Content:    "电话沟通，客户对产品感兴趣",
-		NextFollowDate:   "2025-02-01",
+		CustomerID:        customer.ID,
+		FollowType:        1,
+		Content:           "电话沟通，客户对产品感兴趣",
+		NextFollowDate:    "2025-02-01",
 		NextFollowContent: "预约到店体验",
-		IsDeal:     0,
+		IsDeal:            0,
 	}
 
 	err = customerSvc.AddFollowUp(followUpReq, 1)

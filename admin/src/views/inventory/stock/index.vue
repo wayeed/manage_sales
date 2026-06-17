@@ -55,33 +55,27 @@
             {{ row.warehouse?.warehouse_name || '-' }}
           </template>
         </el-table-column>
-        <el-table-column label="商品图片" width="100" align="center">
-          <template #default="{ row }">
-            <el-image
-              :src="row.sku?.product?.product_image || ''"
-              :preview-src-list="row.sku?.product?.product_image ? [row.sku.product.product_image] : []"
-              fit="cover"
-              style="width: 60px; height: 60px; border-radius: 4px"
-            >
-              <template #error>
-                <div class="image-placeholder">
-                  <el-icon><Picture /></el-icon>
-                </div>
-              </template>
-            </el-image>
-          </template>
-        </el-table-column>
         <el-table-column label="商品名称" min-width="160" show-overflow-tooltip>
           <template #default="{ row }">
-            {{ row.sku?.product?.product_name || row.sku?.sku_name || '-' }}
+            {{ row.sku?.sku_name || row.sku?.product?.product_name || '-' }}
           </template>
         </el-table-column>
-        <el-table-column label="SKU" width="160">
+        <el-table-column label="商品编码" width="160">
           <template #default="{ row }">
-            <span>{{ row.sku?.sku_code || '-' }}</span>
+            <span>{{ row.sku?.product?.product_code || '-' }}</span>
             <span v-if="row.sku?.color || row.sku?.size" class="sku-info">
               ({{ [row.sku?.color, row.sku?.size].filter(Boolean).join(' / ') }})
             </span>
+          </template>
+        </el-table-column>
+        <el-table-column label="品牌" width="120">
+          <template #default="{ row }">
+            {{ row.sku?.product?.brand || '-' }}
+          </template>
+        </el-table-column>
+        <el-table-column label="款式" width="160">
+          <template #default="{ row }">
+            {{ row.sku?.product?.style || '-' }}
           </template>
         </el-table-column>
         <el-table-column label="总库存" width="100" align="center">
@@ -143,7 +137,6 @@
 
 <script setup>
 import { ref, reactive, onMounted } from 'vue'
-import { Picture } from '@element-plus/icons-vue'
 import { getStockList } from '@/api/inventory'
 import { getWarehouseList } from '@/api/warehouse'
 
@@ -247,18 +240,6 @@ onMounted(() => {
     color: #909399;
     font-size: 12px;
     margin-left: 4px;
-  }
-
-  .image-placeholder {
-    width: 60px;
-    height: 60px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background-color: #f5f7fa;
-    border-radius: 4px;
-    color: #909399;
-    font-size: 24px;
   }
 }
 

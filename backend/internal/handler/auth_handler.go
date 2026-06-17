@@ -1,16 +1,21 @@
 package handler
 
 import (
+	"crypto/md5"
+	"fmt"
+	"math/rand"
+	"time"
+
 	"furniture-commission/internal/service"
 
 	"github.com/gin-gonic/gin"
 )
 
 const (
-	contextUserID      = "user_id"
-	contextRole        = "role"
-	contextRoleCodes   = "role_codes"
-	contextStoreID     = "storeID"
+	contextUserID    = "user_id"
+	contextRole      = "role"
+	contextRoleCodes = "role_codes"
+	contextStoreID   = "storeID"
 )
 
 // GetUserID 从上下文中获取用户ID
@@ -96,7 +101,27 @@ func (h *AuthHandler) Login(c *gin.Context) {
 		return
 	}
 
+	// 生成并设置CSRF token
+	csrfToken := generateCSRFToken()
+	// HttpOnly设为false，允许前端JavaScript读取cookie
+	c.SetCookie("csrf_token", csrfToken, 3600*24*7, "/", "", false, false)
+
 	Success(c, resp)
+}
+
+// generateCSRFToken 生成CSRF token
+func generateCSRFToken() string {
+	return fmt.Sprintf("%x", md5.Sum([]byte(time.Now().String()+randString(16))))
+}
+
+// randString 生成随机字符串
+func randString(n int) string {
+	const letters = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+	b := make([]byte, n)
+	for i := range b {
+		b[i] = letters[rand.Intn(len(letters))]
+	}
+	return string(b)
 }
 
 // Logout 用户登出

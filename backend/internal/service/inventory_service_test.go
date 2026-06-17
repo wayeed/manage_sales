@@ -60,7 +60,7 @@ func createTestBatch(t *testing.T, db *gorm.DB, skuID, warehouseID int, batchNo 
 		TotalCost:         decimal.NewFromFloat(price * float64(qty)),
 		InitialQuantity:   qty,
 		RemainingQuantity: remaining,
-		WarehouseID:      &[]int64{int64(warehouseID)}[0],
+		WarehouseID:       &[]int64{int64(warehouseID)}[0],
 		Status:            1,
 		EntryDate:         &entryDate,
 	}
@@ -94,7 +94,7 @@ func TestFIFODeductStock(t *testing.T) {
 	createTestBatch(t, db, 100, 1, "BATCH-003", 20.00, 20, 20, date3) // 最新批次，单价20
 
 	// 扣减70个库存（FIFO：先扣50个@10，再扣20个@15）
-	costDetails, err := svc.DeductStock(warehouseID, skuID, 70, storeID, orderID, createdBy)
+	costDetails, err := svc.DeductStock(warehouseID, skuID, 70, storeID, orderID, createdBy, int8(2))
 	assert.NoError(t, err)
 	assert.NotNil(t, costDetails)
 	assert.Len(t, costDetails, 2) // 涉及2个批次
@@ -113,9 +113,9 @@ func TestFIFODeductStock(t *testing.T) {
 	// 验证库存更新
 	stock, err := invRepo.FindStockByWarehouseAndSKU(warehouseID, skuID)
 	assert.NoError(t, err)
-	assert.Equal(t, 30, stock.StockQuantity)     // 100 - 70 = 30
+	assert.Equal(t, 30, stock.StockQuantity)      // 100 - 70 = 30
 	assert.Equal(t, 100, stock.AvailableQuantity) // 100 (DeductStock不再减少available)
-	assert.Equal(t, 30, stock.LockedQuantity)    // 100 - 70 = 30
+	assert.Equal(t, 30, stock.LockedQuantity)     // 100 - 70 = 30
 
 	// 验证批次更新
 	batches, err := invRepo.FindBatchesBySKU(skuID, warehouseID)
@@ -127,11 +127,11 @@ func TestFIFODeductStock(t *testing.T) {
 			assert.Equal(t, 0, b.RemainingQuantity)
 		}
 		if b.BatchNo == "BATCH-002" {
-			assert.Equal(t, int8(1), b.Status) // 仍可用
+			assert.Equal(t, int8(1), b.Status)       // 仍可用
 			assert.Equal(t, 10, b.RemainingQuantity) // 30 - 20 = 10
 		}
 		if b.BatchNo == "BATCH-003" {
-			assert.Equal(t, int8(1), b.Status) // 仍可用
+			assert.Equal(t, int8(1), b.Status)       // 仍可用
 			assert.Equal(t, 20, b.RemainingQuantity) // 未被扣减
 		}
 	}
@@ -171,7 +171,7 @@ func TestConcurrentDeductStock(t *testing.T) {
 		go func(idx int) {
 			defer wg.Done()
 			orderID := int64(2000 + idx)
-			_, err := svc.DeductStock(warehouseID, skuID, 5, storeID, orderID, createdBy)
+			_, err := svc.DeductStock(warehouseID, skuID, 5, storeID, orderID, createdBy, int8(2))
 			mu.Lock()
 			defer mu.Unlock()
 			if err != nil {
@@ -220,9 +220,9 @@ func TestLockAndUnlockStock(t *testing.T) {
 
 	stock, err := invRepo.FindStockByWarehouseAndSKU(warehouseID, skuID)
 	assert.NoError(t, err)
-	assert.Equal(t, 70, stock.AvailableQuantity)  // 100 - 30 = 70
-	assert.Equal(t, 30, stock.LockedQuantity)     // 0 + 30 = 30
-	assert.Equal(t, 100, stock.StockQuantity)     // 总库存不变
+	assert.Equal(t, 70, stock.AvailableQuantity) // 100 - 30 = 70
+	assert.Equal(t, 30, stock.LockedQuantity)    // 0 + 30 = 30
+	assert.Equal(t, 100, stock.StockQuantity)    // 总库存不变
 
 	// 测试2：继续锁定
 	err = svc.LockStock(warehouseID, skuID, 20)
@@ -230,8 +230,8 @@ func TestLockAndUnlockStock(t *testing.T) {
 
 	stock, err = invRepo.FindStockByWarehouseAndSKU(warehouseID, skuID)
 	assert.NoError(t, err)
-	assert.Equal(t, 50, stock.AvailableQuantity)  // 70 - 20 = 50
-	assert.Equal(t, 50, stock.LockedQuantity)     // 30 + 20 = 50
+	assert.Equal(t, 50, stock.AvailableQuantity) // 70 - 20 = 50
+	assert.Equal(t, 50, stock.LockedQuantity)    // 30 + 20 = 50
 
 	// 测试3：锁定超过可用库存
 	err = svc.LockStock(warehouseID, skuID, 60)
@@ -246,8 +246,8 @@ func TestLockAndUnlockStock(t *testing.T) {
 
 	stock, err = invRepo.FindStockByWarehouseAndSKU(warehouseID, skuID)
 	assert.NoError(t, err)
-	assert.Equal(t, 75, stock.AvailableQuantity)  // 50 + 25 = 75
-	assert.Equal(t, 25, stock.LockedQuantity)     // 50 - 25 = 25
+	assert.Equal(t, 75, stock.AvailableQuantity) // 50 + 25 = 75
+	assert.Equal(t, 25, stock.LockedQuantity)    // 50 - 25 = 25
 
 	// 测试5：释放超过锁定库存
 	err = svc.UnlockStock(warehouseID, skuID, 30)
@@ -277,7 +277,7 @@ func TestAddStock(t *testing.T) {
 	totalCost := decimal.NewFromFloat(500.00)
 	batchNo := "PO-001-SKU400"
 
-	err := svc.AddStock(warehouseID, skuID, 10, purchasePrice, totalCost, batchNo, 1, storeID, createdBy)
+	err := svc.AddStock(warehouseID, skuID, 10, purchasePrice, totalCost, batchNo, 1, storeID, createdBy, int8(2))
 	assert.NoError(t, err)
 
 	// 验证库存记录已创建
@@ -312,7 +312,7 @@ func TestAddStock(t *testing.T) {
 	totalCost2 := decimal.NewFromFloat(550.00)
 	batchNo2 := "PO-002-SKU400"
 
-	err = svc.AddStock(warehouseID, skuID, 10, purchasePrice2, totalCost2, batchNo2, 2, storeID, createdBy)
+	err = svc.AddStock(warehouseID, skuID, 10, purchasePrice2, totalCost2, batchNo2, 2, storeID, createdBy, int8(2))
 	assert.NoError(t, err)
 
 	// 验证库存更新
@@ -337,7 +337,7 @@ func TestAddStock(t *testing.T) {
 	assert.NoError(t, err)
 
 	// 扣减15个（应该先扣10个@50，再扣5个@55）
-	costDetails, err := svc.DeductStock(warehouseID, skuID, 15, storeID, 100, createdBy)
+	costDetails, err := svc.DeductStock(warehouseID, skuID, 15, storeID, 100, createdBy, int8(2))
 	assert.NoError(t, err)
 	assert.Len(t, costDetails, 2)
 
@@ -360,7 +360,7 @@ func TestAddStock(t *testing.T) {
 	// 验证剩余库存
 	stock, err = invRepo.FindStockByWarehouseAndSKU(warehouseID, skuID)
 	assert.NoError(t, err)
-	assert.Equal(t, 5, stock.StockQuantity)      // 20 - 15 = 5
-	assert.Equal(t, 5, stock.AvailableQuantity)   // 5 (LockStock时已减少，DeductStock不再减少)
-	assert.Equal(t, 0, stock.LockedQuantity)      // 15 - 15 = 0
+	assert.Equal(t, 5, stock.StockQuantity)     // 20 - 15 = 5
+	assert.Equal(t, 5, stock.AvailableQuantity) // 5 (LockStock时已减少，DeductStock不再减少)
+	assert.Equal(t, 0, stock.LockedQuantity)    // 15 - 15 = 0
 }

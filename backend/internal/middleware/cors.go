@@ -47,19 +47,33 @@ func Cors() gin.HandlerFunc {
 			}
 		}
 
-		// 如果没有匹配，但 Origin 为空（如直接访问），也允许
-		if allowOrigin == "" && origin != "" {
-			// 生产环境可以设置为特定域名
-			allowOrigin = origin
-		}
-
+		// 如果没有匹配，处理特殊情况
 		if allowOrigin == "" {
-			allowOrigin = "*"
+			// 开发环境可以临时允许任意来源
+			if configs.GlobalConfig != nil && configs.GlobalConfig.Server.Mode == "debug" {
+				allowOrigin = origin
+			} else {
+				// 生产环境：允许无Origin头的请求（如移动端直接调用API）
+				if origin == "" {
+					allowOrigin = "*"
+				} else {
+					// 检查是否是公开接口（如登录），允许更多来源
+					path := c.Request.URL.Path
+					if isPublicPath(path) {
+						// 公开接口允许任意来源
+						allowOrigin = origin
+					} else {
+						log.Printf("[CORS] 拒绝未授权的来源: %s", origin)
+						c.AbortWithStatus(403)
+						return
+					}
+				}
+			}
 		}
 
 		c.Header("Access-Control-Allow-Origin", allowOrigin)
 		c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS, PATCH")
-		c.Header("Access-Control-Allow-Headers", "Origin, Content-Type, Authorization, X-Requested-With, Accept")
+		c.Header("Access-Control-Allow-Headers", "Origin, Content-Type, Authorization, X-CSRF-Token, X-Requested-With, Accept")
 		c.Header("Access-Control-Expose-Headers", "Content-Length, Content-Type")
 
 		if allowOrigin != "*" {
@@ -71,6 +85,60 @@ func Cors() gin.HandlerFunc {
 		if c.Request.Method == "OPTIONS" {
 			c.AbortWithStatus(204)
 			return
+		}
+
+		c.Next()
+	}
+}
+
+// isPublicPath 检查路径是否为公开接口
+func isPublicPath(path string) bool {
+	publicPaths := []string{
+		"/api/login",
+		"/api/health",
+		"/api/csrf-token",
+		"/api/app-versions/latest",
+	}
+	for _, p := range publicPaths {
+		if path == p {
+			return true
+		}
+	}
+	return false
+}
+
+// CSRF CSRF保护中间件
+func CSRF() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		// 跳过公开接口的CSRF检查（如登录、健康检查等）
+		if isPublicPath(c.Request.URL.Path) {
+			c.Next()
+			return
+		}
+
+		// 仅对状态修改请求检查
+		method := c.Request.Method
+		if method != "GET" && method != "HEAD" && method != "OPTIONS" {
+			token := c.GetHeader("X-CSRF-Token")
+			if token == "" {
+				log.Println("[CSRF] 缺少CSRF token")
+				c.AbortWithStatusJSON(403, gin.H{
+					"code":    403,
+					"message": "CSRF token required",
+				})
+				return
+			}
+
+			// 验证token（从session或cookie获取token进行对比）
+			sessionToken, _ := c.Cookie("csrf_token")
+			if token != sessionToken {
+				log.Println("[CSRF] 无效的CSRF token")
+				c.AbortWithStatusJSON(403, gin.H{
+					"code":    403,
+					"message": "Invalid CSRF token",
+				})
+				return
+			}
 		}
 
 		c.Next()

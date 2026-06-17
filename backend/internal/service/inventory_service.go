@@ -23,27 +23,27 @@ func int64Ptr(v int64) *int64 {
 
 // CostDetail 成本明细
 type CostDetail struct {
-	BatchID int64 `json:"batch_id" example:1`
-	UnitCost decimal.Decimal `json:"unit_cost" example:5000.00`
-	Quantity int `json:"quantity" example:10`
+	BatchID   int64           `json:"batch_id" example:1`
+	UnitCost  decimal.Decimal `json:"unit_cost" example:5000.00`
+	Quantity  int             `json:"quantity" example:10`
 	TotalCost decimal.Decimal `json:"total_cost" example:50000.00`
 }
 
 // WarehouseStockDetail 仓库库存详情
 type WarehouseStockDetail struct {
 	models.WarehouseStock
-	SKUName string `json:"sku_name,omitempty" example:"真皮沙发-棕色-三座"`
-	SKUCode string `json:"sku_code,omitempty" example:"SKU001"`
-	Barcode string `json:"barcode,omitempty" example:"6901234567890"`
+	SKUName   string `json:"sku_name,omitempty" example:"真皮沙发-棕色-三座"`
+	SKUCode   string `json:"sku_code,omitempty" example:"SKU001"`
+	Barcode   string `json:"barcode,omitempty" example:"6901234567890"`
 	GroupName string `json:"group_name,omitempty" example:"沙发"`
 }
 
 // InventoryService 库存服务
 type InventoryService struct {
-	db       *gorm.DB
-	invRepo  *repository.InventoryRepository
-	skuRepo  *repository.SKURepository
-	whRepo   *repository.WarehouseRepository
+	db      *gorm.DB
+	invRepo *repository.InventoryRepository
+	skuRepo *repository.SKURepository
+	whRepo  *repository.WarehouseRepository
 }
 
 // NewInventoryService 创建库存服务实例
@@ -180,7 +180,7 @@ func (s *InventoryService) DeductStock(warehouseID, skuID int64, quantity int, s
 			StoreID:         storeID,
 			WarehouseID:     &warehouseID,
 			TransactionType: transactionType, // 动态传入
-			BizType:         1, // 商品
+			BizType:         1,               // 商品
 			BizID:           &skuID,
 			BatchID:         &batch.ID,
 			RelatedOrderID:  &orderID,
@@ -209,9 +209,9 @@ func (s *InventoryService) DeductStock(warehouseID, skuID int64, quantity int, s
 	// 4. 使用乐观锁更新warehouse_stocks
 	// 注意：available_quantity在LockStock时已减少，这里只需减少locked_quantity和stock_quantity
 	rowsAffected, err := s.invRepo.UpdateStockWithLock(warehouseID, skuID, stock.Version, map[string]interface{}{
-		"locked_quantity":    gorm.Expr("locked_quantity - ?", quantity),
-		"stock_quantity":     gorm.Expr("stock_quantity - ?", quantity),
-		"version":            gorm.Expr("version + 1"),
+		"locked_quantity": gorm.Expr("locked_quantity - ?", quantity),
+		"stock_quantity":  gorm.Expr("stock_quantity - ?", quantity),
+		"version":         gorm.Expr("version + 1"),
 	})
 	if err != nil {
 		return nil, &AppError{Code: apperrors.InternalError, Message: "更新库存失败"}
@@ -323,16 +323,16 @@ func (s *InventoryService) AddStock(warehouseID, skuID int64, quantity int, purc
 
 	// 1. 创建 inventory_batch 记录
 	batch := &models.InventoryBatch{
-		SKUID:            skuID,
-		BatchNo:          batchNo,
-		PurchaseOrderID:  &purchaseOrderID,
-		PurchasePrice:    purchasePrice,
-		TotalCost:        totalCost,
-		InitialQuantity:  quantity,
+		SKUID:             skuID,
+		BatchNo:           batchNo,
+		PurchaseOrderID:   &purchaseOrderID,
+		PurchasePrice:     purchasePrice,
+		TotalCost:         totalCost,
+		InitialQuantity:   quantity,
 		RemainingQuantity: quantity,
-		WarehouseID:      &warehouseID,
-		Status:           1,
-		EntryDate:        &now,
+		WarehouseID:       &warehouseID,
+		Status:            1,
+		EntryDate:         &now,
 	}
 	if err := s.invRepo.CreateBatch(batch); err != nil {
 		return &AppError{Code: apperrors.InternalError, Message: "创建库存批次失败"}
@@ -381,7 +381,7 @@ func (s *InventoryService) AddStock(warehouseID, skuID int64, quantity int, purc
 		StoreID:           storeID,
 		WarehouseID:       &warehouseID,
 		TransactionType:   transactionType, // 动态传入
-		BizType:           1, // 商品
+		BizType:           1,               // 商品
 		BizID:             &skuID,
 		BatchID:           &batch.ID,
 		RelatedPurchaseID: &purchaseOrderID,
@@ -784,13 +784,13 @@ func (s *InventoryService) AddGiftStock(warehouseID, giftID int64, quantity int,
 	// 创建礼品批次
 	batch := &models.GiftInventoryBatch{
 		GiftID:            giftID,
-		BatchNo:          batchNo,
-		PurchasePrice:    purchasePrice,
-		InitialQuantity:  quantity,
+		BatchNo:           batchNo,
+		PurchasePrice:     purchasePrice,
+		InitialQuantity:   quantity,
 		RemainingQuantity: quantity,
-		WarehouseID:      &warehouseID,
-		Status:           1,
-		EntryDate:        &now,
+		WarehouseID:       &warehouseID,
+		Status:            1,
+		EntryDate:         &now,
 	}
 	if err := s.invRepo.CreateGiftBatch(batch); err != nil {
 		return &AppError{Code: apperrors.InternalError, Message: "创建礼品批次失败"}
@@ -962,27 +962,27 @@ func (s *InventoryService) CheckStockForOrder(warehouseID int64, items []models.
 			return nil, err
 		}
 
-                availableQty := 0
-                lockedQty := 0
-                if stock != nil {
-                        availableQty = stock.AvailableQuantity
-                        lockedQty = stock.LockedQuantity
-                }
+		availableQty := 0
+		lockedQty := 0
+		if stock != nil {
+			availableQty = stock.AvailableQuantity
+			lockedQty = stock.LockedQuantity
+		}
 
-                // 出库时：可用库存 + 锁定库存（审核时已锁定，锁定库存也是为该订单准备的）
-                totalAvailable := availableQty + lockedQty
-                if totalAvailable < item.Quantity {
-                        results = append(results, StockCheckResult{
-                                SKUID:           item.SKUID,
-                                ProductName:     item.ProductName,
-                                SKUName:         item.SKUName,
-                                RequiredQty:     item.Quantity,
-                                AvailableQty:    totalAvailable,
-                                IsSufficient:    false,
-                        })
+		// 出库时：可用库存 + 锁定库存（审核时已锁定，锁定库存也是为该订单准备的）
+		totalAvailable := availableQty + lockedQty
+		if totalAvailable < item.Quantity {
+			results = append(results, StockCheckResult{
+				SKUID:        item.SKUID,
+				ProductName:  item.ProductName,
+				SKUName:      item.SKUName,
+				RequiredQty:  item.Quantity,
+				AvailableQty: totalAvailable,
+				IsSufficient: false,
+			})
 
-                }
-        }
+		}
+	}
 
 	return results, nil
 }
@@ -992,9 +992,91 @@ type StockCheckResult struct {
 	SKUID        int64  `json:"sku_id"`
 	ProductName  string `json:"product_name"`
 	SKUName      string `json:"sku_name"`
-	RequiredQty  int    `json:"required_qty"`     // 订单需求数量
-	AvailableQty int    `json:"available_qty"`    // 可用库存数量
-	IsSufficient bool   `json:"is_sufficient"`    // 是否充足
+	RequiredQty  int    `json:"required_qty"`  // 订单需求数量
+	AvailableQty int    `json:"available_qty"` // 可用库存数量
+	IsSufficient bool   `json:"is_sufficient"` // 是否充足
+}
+
+// AddStockWithoutPurchase 无需采购批次的库存增加（用于批量导入）
+func (s *InventoryService) AddStockWithoutPurchase(warehouseID, skuID int64, quantity int, storeID int64, createdBy int64) error {
+	now := time.Now()
+
+	// 1. 创建库存批次（无需关联采购订单）
+	batchNo := fmt.Sprintf("IMP%s%d", time.Now().Format("20060102150405"), skuID)
+	batch := &models.InventoryBatch{
+		SKUID:             skuID,
+		BatchNo:           batchNo,
+		PurchaseOrderID:   nil, // 批量导入不关联采购订单
+		PurchasePrice:     decimal.Zero,
+		TotalCost:         decimal.Zero,
+		InitialQuantity:   quantity,
+		RemainingQuantity: quantity,
+		WarehouseID:       &warehouseID,
+		Status:            1,
+		EntryDate:         &now,
+	}
+	if err := s.invRepo.CreateBatch(batch); err != nil {
+		return &AppError{Code: apperrors.InternalError, Message: "创建库存批次失败"}
+	}
+
+	// 2. 更新或创建 warehouse_stocks
+	stock, err := s.invRepo.FindStockByWarehouseAndSKU(warehouseID, skuID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			// 创建新库存记录
+			newStock := &models.WarehouseStock{
+				WarehouseID:       warehouseID,
+				SKUID:             skuID,
+				StockQuantity:     quantity,
+				AvailableQuantity: quantity,
+				LockedQuantity:    0,
+				WarningStock:      10,
+				Version:           0,
+			}
+			if err := s.invRepo.CreateStock(newStock); err != nil {
+				return &AppError{Code: apperrors.InternalError, Message: "创建库存记录失败"}
+			}
+		} else {
+			return &AppError{Code: apperrors.InternalError, Message: "查询库存失败"}
+		}
+	} else {
+		// 更新已有库存记录
+		_, err := s.invRepo.UpdateStockWithLock(warehouseID, skuID, stock.Version, map[string]interface{}{
+			"stock_quantity":     gorm.Expr("stock_quantity + ?", quantity),
+			"available_quantity": gorm.Expr("available_quantity + ?", quantity),
+			"version":            gorm.Expr("version + 1"),
+		})
+		if err != nil {
+			return &AppError{Code: apperrors.InternalError, Message: "更新库存失败"}
+		}
+	}
+
+	// 3. 记录库存流水
+	beforeStock := 0
+	if stock != nil {
+		beforeStock = stock.StockQuantity
+	}
+	afterStock := beforeStock + quantity
+
+	tx := &models.InventoryTransaction{
+		StoreID:         storeID,
+		WarehouseID:     &warehouseID,
+		TransactionType: 13, // 13: 批量导入入库
+		BizType:         1,  // 商品
+		BizID:           &skuID,
+		BatchID:         &batch.ID,
+		Quantity:        quantity,
+		BeforeStock:     beforeStock,
+		AfterStock:      afterStock,
+		Remark:          "批量导入库存",
+		CreatedBy:       int64Ptr(createdBy),
+		CreatedAt:       now,
+	}
+	if err := s.invRepo.CreateTransaction(tx); err != nil {
+		return &AppError{Code: apperrors.InternalError, Message: "记录库存流水失败"}
+	}
+
+	return nil
 }
 
 // IncreaseStock 增加库存（退货入库）
@@ -1051,15 +1133,15 @@ func (s *InventoryService) IncreaseStock(skuID int64, quantity int, storeID int6
 		StoreID:         storeID,
 		WarehouseID:     &warehouseID,
 		TransactionType: 12, // 退货入库
-		BizType:         1, // 商品
+		BizType:         1,  // 商品
 		BizID:           &skuID,
-		RelatedOrderID:   &orderID,
+		RelatedOrderID:  &orderID,
 		Quantity:        quantity,
-		BeforeStock:      beforeQty,
-		AfterStock:       afterQty,
+		BeforeStock:     beforeQty,
+		AfterStock:      afterQty,
 		Remark:          remark,
-		CreatedBy:        int64Ptr(operatorID),
-		CreatedAt:        time.Now(),
+		CreatedBy:       int64Ptr(operatorID),
+		CreatedAt:       time.Now(),
 	}
 	if err := s.invRepo.CreateTransaction(tx); err != nil {
 		return &AppError{Code: apperrors.InternalError, Message: "记录库存流水失败"}

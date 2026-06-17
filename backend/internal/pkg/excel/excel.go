@@ -8,24 +8,69 @@ import (
 	"github.com/xuri/excelize/v2"
 )
 
+// WarehouseStock 仓库库存信息
+type WarehouseStock struct {
+	WarehouseName string
+	StockQuantity int
+}
+
 // ImportRow Excel中导入行数据（一行 = 一个商品，规格颜色自动生成SKU组合）
 type ImportRow struct {
-	Row           int
-	ProductCode   string
-	ProductName   string
-	Brand         string
-	Style         string
-	Unit          string
-	CategoryName  string // 品类名称
-	ListPrice     float64
-	ReferenceCost float64
-	TotalCostRate float64
-	WarningStock  int
-	Spec          string // 规格（如：三座、四座）
-	Color         string // 颜色（如：红色、蓝色）
-	Barcode       string
-	Series        string // 系列
-	SubCategory   string // 类别（A/B/C）
+	Row             int
+	ProductCode     string
+	ProductName     string
+	Brand           string
+	Style           string
+	Unit            string
+	CategoryName    string  // 品类名称
+	ListPrice       float64 // 挂牌价
+	CostPrice       float64 // 进货价/成本价
+	MinPrice        float64 // 最低售价
+	ReferenceCost   float64 // 参考成本
+	TotalCostRate   float64 // 成本系数
+	WarningStock    int
+	Spec            string // 规格（如：三座、四座）
+	Color           string // 颜色（如：红色、蓝色）
+	Barcode         string
+	Series          string // 系列
+	SubCategory     string // 类别（A/B/C）
+	Warehouse1Name  string // 仓库1名称
+	Warehouse1Stock int    // 仓库1库存数量
+	Warehouse2Name  string // 仓库2名称
+	Warehouse2Stock int    // 仓库2库存数量
+	Warehouse3Name  string // 仓库3名称
+	Warehouse3Stock int    // 仓库3库存数量
+}
+
+// GetWarehouseStocks 获取所有有效仓库库存（仓库名称不为空 AND 库存数量不为0 AND 库存数量>0）
+func (row *ImportRow) GetWarehouseStocks() []WarehouseStock {
+	var result []WarehouseStock
+
+	// 仓库1：仓库名称不为空 AND 库存数量不为0 AND 库存数量大于0
+	if row.Warehouse1Name != "" && row.Warehouse1Stock != 0 && row.Warehouse1Stock > 0 {
+		result = append(result, WarehouseStock{
+			WarehouseName: row.Warehouse1Name,
+			StockQuantity: row.Warehouse1Stock,
+		})
+	}
+
+	// 仓库2
+	if row.Warehouse2Name != "" && row.Warehouse2Stock != 0 && row.Warehouse2Stock > 0 {
+		result = append(result, WarehouseStock{
+			WarehouseName: row.Warehouse2Name,
+			StockQuantity: row.Warehouse2Stock,
+		})
+	}
+
+	// 仓库3
+	if row.Warehouse3Name != "" && row.Warehouse3Stock != 0 && row.Warehouse3Stock > 0 {
+		result = append(result, WarehouseStock{
+			WarehouseName: row.Warehouse3Name,
+			StockQuantity: row.Warehouse3Stock,
+		})
+	}
+
+	return result
 }
 
 // ParseImportFile 解析导入的xlsx文件（单Sheet，每行=一个商品）
@@ -58,22 +103,30 @@ func ParseImportFile(file []byte) ([]ImportRow, error) {
 		}
 
 		item := ImportRow{
-			Row:           i + 1,
-			ProductCode:   getCell(row, 0),
-			ProductName:   getCell(row, 1),
-			Brand:         getCell(row, 2),
-			Style:         getCell(row, 3),
-			Unit:          getCell(row, 4),
-			CategoryName:  getCell(row, 5),
-			ListPrice:     getFloatCell(row, 6),
-			ReferenceCost: getFloatCell(row, 7),
-			TotalCostRate: getFloatCell(row, 8),
-			WarningStock:  getIntCell(row, 9),
-			Spec:          getCell(row, 10),
-			Color:         getCell(row, 11),
-			Barcode:       getCell(row, 12),
-			Series:        getCell(row, 13),
-			SubCategory:   getCell(row, 14),
+			Row:             i + 1,
+			ProductCode:     getCell(row, 0),
+			ProductName:     getCell(row, 1),
+			Brand:           getCell(row, 2),
+			Style:           getCell(row, 3),
+			Unit:            getCell(row, 4),
+			CategoryName:    getCell(row, 5),
+			ListPrice:       getFloatCell(row, 6),
+			CostPrice:       getFloatCell(row, 7),  // 进货价
+			MinPrice:        getFloatCell(row, 8),  // 最低售价
+			ReferenceCost:   getFloatCell(row, 9),  // 参考成本
+			TotalCostRate:   getFloatCell(row, 10), // 成本系数
+			WarningStock:    getIntCell(row, 11),
+			Spec:            getCell(row, 12),
+			Color:           getCell(row, 13),
+			Barcode:         getCell(row, 14),
+			Series:          getCell(row, 15),
+			SubCategory:     getCell(row, 16),
+			Warehouse1Name:  getCell(row, 17),    // 仓库1名称
+			Warehouse1Stock: getIntCell(row, 18), // 仓库1库存
+			Warehouse2Name:  getCell(row, 19),    // 仓库2名称
+			Warehouse2Stock: getIntCell(row, 20), // 仓库2库存
+			Warehouse3Name:  getCell(row, 21),    // 仓库3名称
+			Warehouse3Stock: getIntCell(row, 22), // 仓库3库存
 		}
 		result = append(result, item)
 	}
@@ -88,11 +141,14 @@ func GenerateTemplate() ([]byte, error) {
 
 	sheetName := "Sheet1"
 
-	// 表头：商品信息(10列) + 规格颜色条码(3列) + 系列类别(2列)
+	// 表头：商品信息(10列) + 规格颜色条码(3列) + 系列类别(2列) + 多仓库库存(6列)
 	headers := []string{
 		"商品编码", "商品名称", "品牌", "款式", "单位",
-		"品类名称", "挂牌价", "进货价", "成本系数", "库存预警",
+		"品类名称", "挂牌价", "进货价", "最低售价", "参考成本", "成本系数", "库存预警",
 		"规格", "颜色", "条码", "系列", "类别",
+		"仓库1名称", "仓库1库存",
+		"仓库2名称", "仓库2库存",
+		"仓库3名称", "仓库3库存",
 	}
 	for col, header := range headers {
 		cell, _ := excelize.CoordinatesToCellName(col+1, 1)
@@ -112,8 +168,8 @@ func GenerateTemplate() ([]byte, error) {
 
 	// 示例数据（规格和颜色支持多值，用逗号分隔）
 	examples := [][]string{
-		{"ZD100001", "真皮沙发A款", "品牌A", "现代简约", "件", "沙发", "5999", "3000", "1.2", "10", "三座,四座", "红色,蓝色,米色", "", "现代系列", "A"},
-		{"", "实木餐桌B款", "品牌B", "中式", "张", "餐桌", "3999", "2000", "", "5", "1.2米,1.5米", "原木色,胡桃色", "", "古典系列", "B"},
+		{"ZD100001", "真皮沙发A款", "品牌A", "现代简约", "件", "沙发", "5999", "3000", "2500", "3600", "1.2", "10", "三座,四座", "红色,蓝色,米色", "", "现代系列", "A", "主仓库", "50", "副仓库", "30", "备用仓库", "20"},
+		{"", "实木餐桌B款", "品牌B", "中式", "张", "餐桌", "3999", "2000", "1800", "2400", "", "5", "1.2米,1.5米", "原木色,胡桃色", "", "古典系列", "B", "主仓库", "40", "", "", "副仓库", "15"},
 	}
 	for rowIdx, row := range examples {
 		for colIdx, val := range row {
@@ -125,8 +181,11 @@ func GenerateTemplate() ([]byte, error) {
 	// 列宽
 	colWidths := map[string]float64{
 		"A": 15, "B": 20, "C": 10, "D": 12, "E": 8,
-		"F": 12, "G": 10, "H": 10, "I": 10, "J": 10,
-		"K": 15, "L": 20, "M": 18, "N": 15, "O": 10,
+		"F": 12, "G": 10, "H": 10, "I": 10, "J": 10, "K": 10, "L": 10,
+		"M": 15, "N": 20, "O": 18, "P": 15, "Q": 10,
+		"R": 12, "S": 10, // 仓库1名称、仓库1库存
+		"T": 12, "U": 10, // 仓库2名称、仓库2库存
+		"V": 12, "W": 10, // 仓库3名称、仓库3库存
 	}
 	for col, width := range colWidths {
 		f.SetColWidth(sheetName, col, col, width)

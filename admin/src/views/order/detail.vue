@@ -115,31 +115,21 @@
             :summary-method="getItemSummary"
             :row-class-name="getItemRowClass"
           >
-            <el-table-column label="商品名称" min-width="220">
+            <el-table-column label="商品名称" width="400">
               <template #default="{ row }">
-                <span :class="{ 'item-removed-text': row.item_status === 2 }">{{ row.product_name }}</span>
+                <span :class="{ 'item-removed-text': row.item_status === 2 }">{{ row.sku?.sku_name }}</span>
                 <el-tag v-if="row.item_status === 1" type="success" size="small" style="margin-left: 8px">新增</el-tag>
                 <el-tag v-if="row.item_status === 2" type="danger" size="small" style="margin-left: 8px">移除</el-tag>
               </template>
             </el-table-column>
-            <el-table-column label="类别" width="90" align="center">
+            <el-table-column label="品牌款式" min-width="150" align="center">
               <template #default="{ row }">
-                {{ row.sku?.product?.category?.category_name || '' }}
-              </template>
-            </el-table-column>
-            <el-table-column label="款式" width="150" align="center">
-              <template #default="{ row }">
-                {{ row.sku?.product?.style || '' }}
+                {{ row.sku?.product?.brand || '' }} / {{ row.sku?.product?.style || '' }}
               </template>
             </el-table-column>
             <el-table-column label="SKU" width="120" align="center">
               <template #default="{ row }">
                 {{ row.sku?.sku_code || '' }}
-              </template>
-            </el-table-column>
-            <el-table-column label="规格属性" width="150" align="center">
-              <template #default="{ row }">
-                {{ formatAttributes(row.sku?.attributes) }}
               </template>
             </el-table-column>
             <el-table-column label="单位" width="60" align="center">
@@ -148,12 +138,12 @@
               </template>
             </el-table-column>
             <el-table-column prop="quantity" label="数量" width="70" align="center" />
-            <el-table-column label="挂牌价" width="100" align="right">
+            <el-table-column label="挂牌价" width="120" align="right">
               <template #default="{ row }">
                 <span>{{ formatCurrency(row.list_price) }}</span>
               </template>
             </el-table-column>
-            <el-table-column label="销售价" width="100" align="right">
+            <el-table-column label="销售价" width="120" align="right">
               <template #default="{ row }">
                 <span class="price">{{ formatCurrency(row.sale_price) }}</span>
               </template>
@@ -163,12 +153,12 @@
                 <span>{{ formatPercent(row.discount_rate) }}</span>
               </template>
             </el-table-column>
-            <el-table-column label="单位成本" width="100" align="right">
+            <el-table-column label="单位成本" width="120" align="right">
               <template #default="{ row }">
                 <span class="cost">{{ formatCurrency(row.unit_cost) }}</span>
               </template>
             </el-table-column>
-            <el-table-column label="成本合计" width="100" align="right">
+            <el-table-column label="成本合计" width="120" align="right">
               <template #default="{ row }">
                 <span class="cost">{{ formatCurrency((row.quantity || 0) * (row.unit_cost || 0)) }}</span>
               </template>
@@ -226,13 +216,13 @@
             stripe
             style="width: 100%"
           >
-            <el-table-column prop="payment_no" label="回款流水号" width="200" />
+            <el-table-column prop="payment_no" label="回款流水号" width="260" />
             <el-table-column label="金额" width="120" align="right">
               <template #default="{ row }">
                 <span class="price">{{ formatCurrency(row.amount) }}</span>
               </template>
             </el-table-column>
-            <el-table-column label="日期" width="120">
+            <el-table-column label="日期" width="180">
               <template #default="{ row }">
                 {{ formatDate(row.payment_date) }}
               </template>
@@ -408,7 +398,7 @@
     </el-card>
 
     <!-- 选择商品生成采购单弹窗 -->
-    <el-dialog v-dialog-drag v-model="purchaseSelectDialogVisible" title="选择商品生成采购单" width="700px" destroy-on-close>
+    <el-dialog v-dialog-drag v-model="purchaseSelectDialogVisible" title="选择商品生成采购单" width="900px" destroy-on-close>
       <div class="purchase-select-tip">
         <el-alert type="info" :closable="false">
           <template #title>
@@ -418,37 +408,37 @@
       </div>
       <el-table ref="purchaseSelectTable" :data="purchaseSelectItems" border stripe max-height="400" @selection-change="handlePurchaseSelectionChange">
         <el-table-column type="selection" width="55" />
-        <el-table-column label="商品名称" min-width="150">
-          <template #default="{ row }">
-            {{ row.product_name || row.sku_name || '-' }}
-          </template>
-        </el-table-column>
-        <el-table-column label="SKU" width="140">
+        <el-table-column label="商品名称" min-width="160">
           <template #default="{ row }">
             {{ row.sku_name || '-' }}
           </template>
         </el-table-column>
-        <el-table-column label="SKU编码" width="140">
+        <el-table-column label="品牌款式" width="120">
+          <template #default="{ row }">
+            {{ row.brand || '-' }}<span v-if="row.brand && row.style"> <br/> </span>{{ row.style || '-' }}
+          </template>
+        </el-table-column>
+        <el-table-column label="SKU编码" width="120">
           <template #default="{ row }">
             {{ row.sku_code || '-' }}
           </template>
         </el-table-column>
-        <el-table-column label="订单数量" width="100" align="center" prop="quantity" />
-        <el-table-column label="可用库存" width="100" align="center">
+        <el-table-column label="订单数量" width="90" align="center" prop="quantity" />
+        <el-table-column label="可用库存" width="90" align="center">
           <template #default="{ row }">
             <span :class="{ 'low-stock': row.available_qty < row.quantity }">
               {{ row.available_qty || 0 }}
             </span>
           </template>
         </el-table-column>
-        <el-table-column label="需采购数量" width="120" align="center">
+        <el-table-column label="需采购数量" width="100" align="center">
           <template #default="{ row }">
             <span class="need-purchase">{{ Math.max(0, row.quantity - (row.available_qty || 0)) }}</span>
           </template>
         </el-table-column>
         <el-table-column label="成本价" width="100" align="right">
           <template #default="{ row }">
-            ¥{{ row.unit_cost || row.sale_price * 0.7 || 0 }}
+            ¥{{ row.sku?.product?.cost_price || 0 }}
           </template>
         </el-table-column>
       </el-table>
@@ -817,6 +807,8 @@ const handleGeneratePurchase = async () => {
           ...item,
           available_qty: availableQty,
           need_purchase_qty: Math.max(0, item.quantity - availableQty),
+          brand: item.sku?.product?.brand || '',
+          style: item.sku?.product?.style || '',
         }
       })
     )
@@ -879,8 +871,9 @@ const handleConfirmPurchaseSelect = async () => {
     product_name: item.product_name || item.sku?.product?.product_name || '',
     sku_name: item.sku_name || '',
     sku_code: item.sku_code || item.sku?.sku_code || '',
+    style: item.style || item.sku?.product?.style || '',
     quantity: Math.max(1, item.quantity - (item.available_qty || 0)),
-    purchase_price: Number(item.unit_cost) || (Number(item.sale_price) * 0.7) || 0,
+    purchase_price: Number(item.sku?.product?.cost_price) || Number(item.cost_price) || Number(item.unit_cost) || (Number(item.sale_price) * 0.7) || 0,
   }))
 
   if (mergeTarget.value === 'existing' && selectedPurchaseOrder.value) {

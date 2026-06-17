@@ -98,9 +98,9 @@
             {{ row.category?.category_name || '-' }}
           </template>
         </el-table-column>
-        <el-table-column prop="cost_price" label="成本价" width="100" align="right">
+        <el-table-column prop="cost_price" label="参考成本价" width="100" align="right">
           <template #default="{ row }">
-            ¥{{ Number(row.cost_price || 0).toFixed(2) }}
+            ¥{{ Number(row.reference_cost || 0).toFixed(2) }}
           </template>
         </el-table-column>
         <el-table-column prop="list_price" label="挂牌价" width="100" align="right">

@@ -61,11 +61,11 @@ func setupCommissionTestService(t *testing.T) (*CommissionService, *gorm.DB) {
 // createTestStore 创建测试门店
 func createTestStore(t *testing.T, db *gorm.DB, id int64, managerID *int64) {
 	store := &models.Store{
-		ID:           id,
-		StoreCode:    "STORE-001",
-		StoreName:    "测试门店",
-		ManagerID:    managerID,
-		Status:       1,
+		ID:        id,
+		StoreCode: "STORE-001",
+		StoreName: "测试门店",
+		ManagerID: managerID,
+		Status:    1,
 	}
 	err := db.Create(store).Error
 	assert.NoError(t, err)
@@ -74,16 +74,16 @@ func createTestStore(t *testing.T, db *gorm.DB, id int64, managerID *int64) {
 // createTestUser 创建测试用户
 func createTestUser(t *testing.T, db *gorm.DB, id int64, storeID *int64, parentID *int64, baseSalary float64) {
 	user := &models.User{
-		ID:          id,
-		StoreID:     storeID,
-		EmployeeNo:  fmt.Sprintf("EMP-%d", id),
-		Username:    fmt.Sprintf("user%d", id),
-		Password:    "hashed_password",
-		RealName:    fmt.Sprintf("员工%d", id),
-		Phone:       fmt.Sprintf("138%010d", id),
-		Status:      1,
-		ParentID:    parentID,
-		BaseSalary:  baseSalary,
+		ID:         id,
+		StoreID:    storeID,
+		EmployeeNo: fmt.Sprintf("EMP-%d", id),
+		Username:   fmt.Sprintf("user%d", id),
+		Password:   "hashed_password",
+		RealName:   fmt.Sprintf("员工%d", id),
+		Phone:      fmt.Sprintf("138%010d", id),
+		Status:     1,
+		ParentID:   parentID,
+		BaseSalary: decimal.NewFromFloat(baseSalary),
 	}
 	err := db.Create(user).Error
 	assert.NoError(t, err)
@@ -92,20 +92,20 @@ func createTestUser(t *testing.T, db *gorm.DB, id int64, storeID *int64, parentI
 // createApprovedOrder 创建已审核通过的订单
 func createApprovedOrder(t *testing.T, db *gorm.DB, orderID int64, storeID, salesmanID int64, orderType int8, actualProfit float64, isPeerOrder int8, peerID *int64) {
 	order := &models.Order{
-		ID:               orderID,
-		StoreID:          storeID,
-		OrderNo:          fmt.Sprintf("ORD-%d", orderID),
-		SalesmanID:       salesmanID,
-		CustomerName:     "测试客户",
-		CustomerPhone:    "13800000001",
-		OrderType:        orderType,
-		OrderStatus:      1, // 已生效
-		PaymentStatus:    2, // 已回款
-		FinalAmount:      decimal.NewFromFloat(actualProfit + 500),
-		TotalCost:        decimal.NewFromFloat(500),
-		ActualProfit:     decimal.NewFromFloat(actualProfit),
-		IsPeerOrder:      isPeerOrder,
-		PeerID:           peerID,
+		ID:            orderID,
+		StoreID:       storeID,
+		OrderNo:       fmt.Sprintf("ORD-%d", orderID),
+		SalesmanID:    salesmanID,
+		CustomerName:  "测试客户",
+		CustomerPhone: "13800000001",
+		OrderType:     orderType,
+		OrderStatus:   1, // 已生效
+		PaymentStatus: 2, // 已回款
+		FinalAmount:   decimal.NewFromFloat(actualProfit + 500),
+		TotalCost:     decimal.NewFromFloat(500),
+		ActualProfit:  decimal.NewFromFloat(actualProfit),
+		IsPeerOrder:   isPeerOrder,
+		PeerID:        peerID,
 	}
 	err := db.Create(order).Error
 	assert.NoError(t, err)
@@ -119,8 +119,8 @@ func TestCalculateSingleItemCommission(t *testing.T) {
 	managerID := int64(100)
 	storeManagerID := int64(101)
 	createTestStore(t, db, 1, &storeManagerID)
-	createTestUser(t, db, 10, intPtr64(1), &managerID, 3000)  // 业务员，主管=100
-	createTestUser(t, db, managerID, intPtr64(1), nil, 5000)    // 主管
+	createTestUser(t, db, 10, intPtr64(1), &managerID, 3000)      // 业务员，主管=100
+	createTestUser(t, db, managerID, intPtr64(1), nil, 5000)      // 主管
 	createTestUser(t, db, storeManagerID, intPtr64(1), nil, 8000) // 店长
 
 	// 创建单品订单，利润1000元
@@ -188,7 +188,7 @@ func TestCalculateMultiItemCommission(t *testing.T) {
 	// 准备测试数据
 	storeManagerID := int64(101)
 	createTestStore(t, db, 1, &storeManagerID)
-	createTestUser(t, db, 10, intPtr64(1), nil, 3000)       // 业务员（无主管）
+	createTestUser(t, db, 10, intPtr64(1), nil, 3000)             // 业务员（无主管）
 	createTestUser(t, db, storeManagerID, intPtr64(1), nil, 8000) // 店长
 
 	// 创建多品订单，利润2000元
@@ -346,8 +346,8 @@ func TestCalculateTeamShare(t *testing.T) {
 	managerID := int64(100)
 	storeManagerID := int64(101)
 	createTestStore(t, db, 1, &storeManagerID)
-	createTestUser(t, db, 10, intPtr64(1), &managerID, 3000)  // 业务员，主管=100
-	createTestUser(t, db, managerID, intPtr64(1), nil, 5000)    // 主管
+	createTestUser(t, db, 10, intPtr64(1), &managerID, 3000)      // 业务员，主管=100
+	createTestUser(t, db, managerID, intPtr64(1), nil, 5000)      // 主管
 	createTestUser(t, db, storeManagerID, intPtr64(1), nil, 8000) // 店长
 
 	// 创建单品订单，利润10000元
@@ -422,8 +422,8 @@ func TestCalculateReferralReward(t *testing.T) {
 	storeManagerID := int64(101)
 	referrerID := int64(200) // 引荐人
 	createTestStore(t, db, 1, &storeManagerID)
-	createTestUser(t, db, referrerID, intPtr64(1), nil, 5000)   // 引荐人
-	createTestUser(t, db, 10, intPtr64(1), nil, 3000)            // 业务员
+	createTestUser(t, db, referrerID, intPtr64(1), nil, 5000)     // 引荐人
+	createTestUser(t, db, 10, intPtr64(1), nil, 3000)             // 业务员
 	createTestUser(t, db, storeManagerID, intPtr64(1), nil, 8000) // 店长
 
 	// 创建老带新关系
@@ -489,14 +489,14 @@ func TestCalculateCommissionInvalidOrderStatus(t *testing.T) {
 
 	// 创建待审批订单（order_status=0）
 	order := &models.Order{
-		ID:           10,
-		StoreID:      1,
-		OrderNo:      "ORD-10",
-		SalesmanID:   10,
-		CustomerName: "测试客户",
+		ID:            10,
+		StoreID:       1,
+		OrderNo:       "ORD-10",
+		SalesmanID:    10,
+		CustomerName:  "测试客户",
 		CustomerPhone: "13800000010",
-		OrderType:    1,
-		OrderStatus:  0, // 待审批
+		OrderType:     1,
+		OrderStatus:   0, // 待审批
 	}
 	err := db.Create(order).Error
 	assert.NoError(t, err)

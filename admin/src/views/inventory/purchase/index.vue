@@ -178,7 +178,7 @@
               <div v-if="row.sku_code || row.sku_name" class="sku-display">
                 <span class="sku-code">{{ row.sku_code || row.sku_name }}</span>
                 <span v-if="row.sku_code && row.sku_name && row.sku_code !== row.sku_name" class="sku-name">{{ row.sku_name }}</span>
-                <span v-if="row.product_name" class="product-name">({{ row.product_name }})</span>
+                <span v-if="row.style" class="product-name">({{ row.style }})</span>
               </div>
               <el-select
                 v-else
@@ -196,7 +196,7 @@
                 <el-option
                   v-for="item in skuOptions"
                   :key="item.id"
-                  :label="`${item.sku_code} - ${item.sku_name} (${item.product?.product_name || '未知商品'})`"
+                  :label="`${item.sku_code} - ${item.sku_name} (${item.product?.style || '未知款式'})`"
                   :value="item.id"
                 />
               </el-select>
@@ -362,6 +362,7 @@ const handleSkuSelect = (skuId, row) => {
     row.product_name = selectedSku.product?.product_name || ''
     row.sku_name = selectedSku.sku_name || ''
     row.sku_code = selectedSku.sku_code || ''
+    row.style = selectedSku.product?.style || ''
   }
 }
 
@@ -444,14 +445,15 @@ const handleEdit = async (row) => {
     formData.supplier_id = order.supplier_id || ''
     formData.remark = order.remark || ''
     formData.items = (order.items || []).map(item => ({
-      id: item.id,
-      sku_id: item.sku_id,
-      product_name: item.product_name || '',
-      sku_name: item.sku_name || '',
-      sku_code: item.sku?.sku_code || item.sku_code || '',
-      quantity: item.quantity,
-      purchase_price: Number(item.purchase_price) || 0,
-    }))
+        id: item.id,
+        sku_id: item.sku_id,
+        product_name: item.product_name || '',
+        sku_name: item.sku_name || '',
+        sku_code: item.sku?.sku_code || item.sku_code || '',
+        style: item.style || item.sku?.product?.style || '',
+        quantity: item.quantity,
+        purchase_price: Number(item.purchase_price) || 0,
+      }))
 
     if (supplierOptions.value.length === 0) {
       await fetchSupplierOptions()
@@ -504,6 +506,7 @@ const handleSubmit = async () => {
         sku_id: item.sku_id,
         product_name: item.product_name || '',
         sku_name: item.sku_name || '',
+        style: item.style || '',
         quantity: item.quantity,
         purchase_price: item.purchase_price,
       })),
@@ -639,13 +642,14 @@ onMounted(async () => {
     formData.supplier_id = ''
     formData.remark = orderNo ? `由订单[${orderNo}]生成` : ''
     formData.items = prefillItems.map(item => ({
-      sku_id: item.sku_id,
-      product_name: item.product_name || '',
-      sku_name: item.sku_name || '',
-      sku_code: item.sku_code || '',
-      quantity: item.quantity || 1,
-      purchase_price: item.purchase_price || 0,
-    }))
+        sku_id: item.sku_id,
+        product_name: item.product_name || '',
+        sku_name: item.sku_name || '',
+        sku_code: item.sku_code || '',
+        style: item.style || '',
+        quantity: item.quantity || 1,
+        purchase_price: item.purchase_price || 0,
+      }))
     
     formDialogVisible.value = true
     

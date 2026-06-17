@@ -97,7 +97,8 @@ func (h *ProductHandler) Create(c *gin.Context) {
 	}
 
 	createdBy := GetUserID(c)
-	if err := h.productService.Create(&req, createdBy); err != nil {
+	_, err := h.productService.Create(&req, createdBy)
+	if err != nil {
 		if appErr, ok := err.(*service.AppError); ok {
 			Error(c, appErr.Code, appErr.Message)
 			return
@@ -375,7 +376,7 @@ func (h *ProductHandler) ListAllSKU(c *gin.Context) {
 	keyword := c.Query("keyword")
 	page, _ := strconv.Atoi(c.Query("page"))
 	pageSize, _ := strconv.Atoi(c.Query("page_size"))
-	
+
 	skus, total, err := h.skuService.ListAll(keyword, page, pageSize)
 	if err != nil {
 		if appErr, ok := err.(*service.AppError); ok {
@@ -385,14 +386,14 @@ func (h *ProductHandler) ListAllSKU(c *gin.Context) {
 		Error(c, 500, "查询SKU列表失败")
 		return
 	}
-	
+
 	if page <= 0 {
 		page = 1
 	}
 	if pageSize <= 0 {
 		pageSize = 10
 	}
-	
+
 	PageResponse(c, skus, total, page, pageSize)
 }
 
