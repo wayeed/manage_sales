@@ -109,19 +109,28 @@
         <view v-if="items && items.length > 0">
           <view v-for="(item, index) in items" :key="index" class="product-detail" :class="{ 'item-removed': item.item_status === 2 }">
             <view class="product-detail-header">
-              <text class="product-detail-name">{{ item.product_name || '--' }}</text>
-              <text v-if="item.item_status === 1" class="item-status-tag tag-new">新增</text>
-              <text v-if="item.item_status === 2" class="item-status-tag tag-removed">移除</text>
-              <text class="product-detail-sku">规格: {{ item.sku_name || '--' }}</text>
-              <text class="product-detail-sku" v-if="item.sku_code">编码: {{ item.sku_code }}</text>
+              <text class="product-detail-name">{{ item.sku_name || item.product_name || '--' }}</text>
+              <view class="product-detail-status">
+                <text v-if="item.item_status === 1" class="item-status-tag tag-new">新增</text>
+                <text v-if="item.item_status === 2" class="item-status-tag tag-removed">移除</text>
+              </view>
             </view>
+            <!-- 品牌和款式 -->
+            <text v-if="item.sku?.product?.brand || item.sku?.product?.style" class="product-detail-brand">
+              {{ item.sku?.product?.brand || '' }}{{ item.sku?.product?.style || '' }}
+            </text>
+            <!-- 编码 -->
+            <text v-if="item.sku_code" class="product-detail-sku">编码: {{ item.sku_code }}</text>
+            <!-- 数量和单价 -->
             <view class="product-detail-row">
-              <text class="product-detail-label">数量</text>
-              <text class="product-detail-value">{{ item.quantity || 0 }}</text>
-            </view>
-            <view class="product-detail-row">
-              <text class="product-detail-label">单价</text>
-              <text class="product-detail-value">{{ item.sale_price || '0.00' }}元</text>
+              <view class="product-detail-col-left">
+                <text class="product-detail-label">数量</text>
+                <text class="product-detail-value">{{ item.quantity || 0 }}</text>
+              </view>
+              <view class="product-detail-col-right">
+                <text class="product-detail-label">单价</text>
+                <text class="product-detail-value">{{ item.sale_price || '0.00' }}元</text>
+              </view>
             </view>
           </view>
         </view>
@@ -353,8 +362,7 @@
             <text class="commission-items-title">商品成本明细</text>
             <view v-for="(cItem, cIdx) in commissionData.items" :key="cIdx" class="commission-item-card">
               <view class="commission-item-header">
-                <text class="commission-item-name">{{ cItem.product_name || '--' }}</text>
-                <text class="commission-item-sku">{{ cItem.sku_name || '--' }}</text>
+                <text class="commission-item-name">{{ cItem.sku_name || '--' }}</text>
               </view>
               <view class="commission-item-row">
                 <text class="commission-item-label">数量</text>
@@ -746,11 +754,18 @@ export default {
         sourceType: ['album', 'camera'],
         success: (res) => {
           const tempPath = res.tempFilePaths[0]
+          const token = uni.getStorageSync('token')
+          const csrfToken = uni.getStorageSync('csrf_token')
+          const headers = { 'Authorization': 'Bearer ' + token }
+          // 添加CSRF token
+          if (csrfToken) {
+            headers['X-CSRF-Token'] = csrfToken
+          }
           uni.uploadFile({
             url: BASE_URL + '/upload/image',
             filePath: tempPath,
             name: 'file',
-            header: { 'Authorization': 'Bearer ' + uni.getStorageSync('token') },
+            header: headers,
             success: (uploadRes) => {
               const data = JSON.parse(uploadRes.data)
               if (data.errno === 0 && data.data && data.data.url) {
@@ -1023,25 +1038,52 @@ export default {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 12rpx;
+  margin-bottom: 8rpx;
 }
 
 .product-detail-name {
   font-size: 28rpx;
   font-weight: 500;
   color: #333333;
+  flex: 1;
+  margin-right: 16rpx;
+}
+
+.product-detail-status {
+  display: flex;
+  gap: 12rpx;
+}
+
+.product-detail-brand {
+  font-size: 24rpx;
+  color: #1890ff;
+  margin-bottom: 8rpx;
+  display: block;
 }
 
 .product-detail-sku {
   font-size: 24rpx;
   color: #999999;
+  margin-bottom: 12rpx;
+  display: block;
 }
 
 .product-detail-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 4rpx 0;
+}
+
+.product-detail-col-left {
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+}
+
+.product-detail-col-right {
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
 }
 
 .product-detail-label {

@@ -334,7 +334,7 @@ func (s *UserService) ResetPassword(id int64) (string, error) {
 	}
 
 	// 生成随机密码
-	newPassword := generateRandomPassword(8)
+	newPassword := "a123456" //generateRandomPassword(8)
 	hashedPassword, err := appmd5.HashPassword(newPassword)
 	if err != nil {
 		return "", &AppError{Code: apperrors.InternalError, Message: "密码加密失败"}

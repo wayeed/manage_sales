@@ -19,6 +19,7 @@ const (
 	ErrInsufficientStock = 10005
 	ErrOrderNotFound     = 10006
 	ErrInvalidOrderStatus = 10007
+	ErrInvalidParam       = 10008
 )
 
 // 错误码消息映射

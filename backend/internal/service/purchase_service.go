@@ -28,6 +28,8 @@ type CreatePurchaseItemRequest struct {
 	SKUID int64 `json:"sku_id" binding:"required" example:1`
 	ProductName string `json:"product_name" example:"真皮沙发"`
 	SKUName string `json:"sku_name" example:"真皮沙发-棕色-三座"`
+	SKUCode string `json:"sku_code" example:"SKU001"`
+	BrandStyle string `json:"brand_style" example:"品牌-款式"`
 	PurchasePrice float64 `json:"purchase_price" example:5000.00`
 	Quantity int `json:"quantity" binding:"required,min=1" example:10`
 }
@@ -63,6 +65,7 @@ type ListPurchaseOrderRequest struct {
 	Keyword string `form:"keyword" example:"PO"`
 	Page int `form:"page" example:1`
 	PageSize int `form:"page_size" example:10`
+	WithItems bool `form:"with_items" example:false`
 }
 
 // PurchaseService 采购服务
@@ -133,6 +136,8 @@ func (s *PurchaseService) CreateOrder(req *CreatePurchaseOrderRequest, warehouse
 				SKUID:           &item.SKUID,
 				ProductName:     item.ProductName,
 				SKUName:         item.SKUName,
+				SKUCode:         item.SKUCode,
+				BrandStyle:      item.BrandStyle,
 				PurchasePrice:   decimal.NewFromFloat(item.PurchasePrice),
 				Quantity:        item.Quantity,
 				Subtotal:        subtotal,
@@ -308,7 +313,9 @@ func (s *PurchaseService) List(req *ListPurchaseOrderRequest) (*PageResult, erro
 	}
 	if req.Keyword != "" {
 		like := "%" + req.Keyword + "%"
-		db = db.Where("purchase_no LIKE ?", like)
+		db = db.Where("purchase_no LIKE ?", like).
+			Or("EXISTS (SELECT 1 FROM purchase_items pi WHERE pi.purchase_order_id = purchase_orders.id AND pi.product_name LIKE ?)", like).
+			Or("EXISTS (SELECT 1 FROM purchase_items pi LEFT JOIN product_skus sku ON pi.sku_id = sku.id WHERE pi.purchase_order_id = purchase_orders.id AND sku.sku_code LIKE ?)", like)
 	}
 
 	var total int64
@@ -329,9 +336,13 @@ func (s *PurchaseService) List(req *ListPurchaseOrderRequest) (*PageResult, erro
 	}
 
 	var orders []models.PurchaseOrder
-	if err := db.Offset((page - 1) * pageSize).Limit(pageSize).
-		Order("id DESC").
-		Find(&orders).Error; err != nil {
+	query := db.Offset((page - 1) * pageSize).Limit(pageSize).Order("id DESC")
+	
+	if req.WithItems {
+		query = query.Preload("Items.SKU.Product")
+	}
+
+	if err := query.Find(&orders).Error; err != nil {
 		return nil, &AppError{Code: apperrors.InternalError, Message: "查询采购订单列表失败"}
 	}
 

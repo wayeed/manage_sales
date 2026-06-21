@@ -382,6 +382,7 @@ export default {
         skuId: item.sku_id,
         name: item.product_name,
         sku: item.sku_name,
+        skuCode: item.sku_code || '',
         quantity: item.quantity,
         listPrice: item.list_price,
         salePrice: item.sale_price,
@@ -479,15 +480,25 @@ export default {
     const onProductSelect = (product) => {
       const index = currentProductIndex.value
       if (index >= 0 && index < form.value.products.length) {
+        const p = product.product || {}
         form.value.products[index].skuId = product.id
-        form.value.products[index].name = product.product?.product_name || product.sku_name || ''
+        form.value.products[index].name = p.product_name || product.sku_name || ''
         form.value.products[index].sku = product.sku_name || ''
         form.value.products[index].skuCode = product.sku_code || ''
-        form.value.products[index].listPrice = Number(product.product?.list_price) || 0
-        form.value.products[index].minPrice = Number(product.product?.min_price) || 0
-        form.value.products[index].costPrice = Number(product.product?.reference_cost) || 0
-        form.value.products[index].salePrice = Number(product.product?.list_price) || 0
+        form.value.products[index].listPrice = Number(p.list_price) || 0
+        form.value.products[index].minPrice = Number(p.min_price) || 0
+        
+        // 从多个来源获取成本价，确保不会为空
+        const costPrice = Number(p.reference_cost) || Number(p.cost_price) || (Number(p.list_price) * 0.7) || 0
+        form.value.products[index].costPrice = costPrice
+        
+        form.value.products[index].salePrice = Number(p.list_price) || 0
         form.value.products[index].stock = product.available_stock || 0
+        
+        // 如果成本价为0，给出警告提示
+        if (costPrice <= 0) {
+          uni.showToast({ title: '该商品成本价未设置', icon: 'none' })
+        }
       }
     }
 

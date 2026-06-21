@@ -80,7 +80,7 @@ func (f *FixtureManager) CreateStore(id int64, managerID *int64) *models.Store {
 }
 
 // CreateUser 创建测试用户
-func (f *FixtureManager) CreateUser(id int64, storeID *int64, username, password, realName, phone string, status int8, role int, baseSalary float64, parentID *int64) *models.User {
+func (f *FixtureManager) CreateUser(id int64, storeID *int64, username, password, realName, phone string, status int8, role int8, baseSalary decimal.Decimal, parentID *int64) *models.User {
 	user := &models.User{
 		ID:          id,
 		StoreID:     storeID,

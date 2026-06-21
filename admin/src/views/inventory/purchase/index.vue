@@ -63,8 +63,8 @@
         stripe
         style="width: 100%"
       >
-        <el-table-column prop="purchase_no" label="采购单号" width="180" />
-        <el-table-column label="供应商" width="160">
+        <el-table-column prop="purchase_no" label="采购单号" width="235" />
+        <el-table-column label="供应商" min-width="200">
           <template #default="{ row }">
             {{ row.supplier_name || '-' }}
           </template>
@@ -87,7 +87,7 @@
             {{ formatTime(row.created_at) }}
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="300" align="center" fixed="right">
+        <el-table-column label="操作" width="200" align="center" fixed="right">
           <template #default="{ row }">
             <el-button type="primary" link size="small" @click="handleDetail(row)">
               详情
@@ -106,9 +106,9 @@
             </el-button>
             <el-button
               v-if="row.status === 1"
-              type="warning" link size="small" @click="handleReceipt(row)"
+              type="warning" link size="small" @click="handleCreateReceipt(row)"
             >
-              入库
+              创建回货单
             </el-button>
             <el-button
               v-if="row.status === 0"
@@ -228,45 +228,6 @@
         </el-button>
       </template>
     </el-dialog>
-
-    <!-- 入库确认弹窗 -->
-    
-<el-dialog v-dialog-drag
-      v-model="receiptDialogVisible"
-      title="确认入库"
-      width="500px"
-      destroy-on-close
-    >
-      <el-form
-        ref="receiptFormRef"
-        :model="receiptForm"
-        :rules="receiptRules"
-        label-width="100px"
-      >
-        <el-form-item label="采购单号">
-          <span>{{ currentPurchase?.purchase_no }}</span>
-        </el-form-item>
-        <el-form-item label="入库仓库" prop="warehouse_id">
-          <el-select v-model="receiptForm.warehouse_id" placeholder="请选择入库仓库" style="width: 100%">
-            <el-option
-              v-for="item in warehouseOptions"
-              :key="item.id"
-              :label="item.warehouse_name"
-              :value="item.id"
-            />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="备注">
-          <el-input v-model="receiptForm.remark" type="textarea" :rows="2" placeholder="入库备注" />
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="receiptDialogVisible = false">取消</el-button>
-        <el-button type="primary" :loading="receiptLoading" @click="handleReceiptSubmit">
-          确认入库
-        </el-button>
-      </template>
-    </el-dialog>
   </div>
 </template>
 
@@ -280,11 +241,9 @@ import {
   createPurchase,
   updatePurchase,
   approvePurchase,
-  confirmReceipt,
   cancelPurchase,
 } from '@/api/purchase'
 import { getSupplierList } from '@/api/supplier'
-import { getWarehouseList } from '@/api/warehouse'
 import { getAllSkuList } from '@/api/product'
 
 const router = useRouter()
@@ -294,7 +253,6 @@ const route = useRoute()
 const loading = ref(false)
 const purchaseList = ref([])
 const supplierOptions = ref([])
-const warehouseOptions = ref([])
 const skuOptions = ref([])
 const skuLoading = ref(false)
 
@@ -344,15 +302,6 @@ const fetchSupplierOptions = async () => {
   }
 }
 
-const fetchWarehouseOptions = async () => {
-  try {
-    const res = await getWarehouseList()
-    warehouseOptions.value = res.data?.list || res.data || []
-  } catch (error) {
-    console.error('获取仓库列表失败:', error)
-  }
-}
-
 // 搜索SKU
 // SKU选择后回填进货价
 const handleSkuSelect = (skuId, row) => {
@@ -362,7 +311,17 @@ const handleSkuSelect = (skuId, row) => {
     row.product_name = selectedSku.product?.product_name || ''
     row.sku_name = selectedSku.sku_name || ''
     row.sku_code = selectedSku.sku_code || ''
-    row.style = selectedSku.product?.style || ''
+    
+    // 组合品牌和款式
+    const brand = selectedSku.product?.brand || ''
+    const style = selectedSku.product?.style || ''
+    row.brand = brand
+    row.brand_style = (brand && style) ? `${brand}${style}` : (brand || style) || ''
+    
+    // 如果获取不到品牌或款式，给出提示
+    if (!brand && !style) {
+      ElMessage.warning('该商品缺少品牌和款式信息，请补充')
+    }
   }
 }
 
@@ -506,7 +465,8 @@ const handleSubmit = async () => {
         sku_id: item.sku_id,
         product_name: item.product_name || '',
         sku_name: item.sku_name || '',
-        style: item.style || '',
+        sku_code: item.sku_code || '',
+        brand_style: item.brand_style || '',
         quantity: item.quantity,
         purchase_price: item.purchase_price,
       })),
@@ -526,21 +486,6 @@ const handleSubmit = async () => {
   } finally {
     submitLoading.value = false
   }
-}
-
-// ==================== 入库确认 ====================
-const receiptDialogVisible = ref(false)
-const receiptLoading = ref(false)
-const receiptFormRef = ref(null)
-const currentPurchase = ref(null)
-
-const receiptForm = reactive({
-  warehouse_id: '',
-  remark: '',
-})
-
-const receiptRules = {
-  warehouse_id: [{ required: true, message: '请选择入库仓库', trigger: 'change' }],
 }
 
 // ==================== 操作 ====================
@@ -568,35 +513,15 @@ const handleApprove = (row) => {
   }).catch(() => {})
 }
 
-const handleReceipt = (row) => {
-  currentPurchase.value = row
-  receiptForm.warehouse_id = ''
-  receiptForm.remark = ''
-  // 确保仓库列表已加载
-  if (warehouseOptions.value.length === 0) {
-    fetchWarehouseOptions()
-  }
-  receiptDialogVisible.value = true
-}
-
-const handleReceiptSubmit = async () => {
-  const valid = await receiptFormRef.value?.validate().catch(() => false)
-  if (!valid) return
-
-  receiptLoading.value = true
-  try {
-    await confirmReceipt(currentPurchase.value.id, {
-      warehouse_id: receiptForm.warehouse_id,
-      remark: receiptForm.remark,
-    })
-    ElMessage.success('入库成功')
-    receiptDialogVisible.value = false
-    fetchList()
-  } catch (error) {
-    console.error('入库失败:', error)
-  } finally {
-    receiptLoading.value = false
-  }
+const handleCreateReceipt = (row) => {
+  router.push({ 
+    path: '/inventory/receipt',
+    query: { 
+      purchase_id: row.id,
+      purchase_no: row.purchase_no,
+      supplier_id: row.supplier_id 
+    }
+  })
 }
 
 const handleCancel = (row) => {
@@ -623,7 +548,6 @@ const handleCancel = (row) => {
 onMounted(async () => {
   fetchList()
   fetchSupplierOptions()
-  fetchWarehouseOptions()
 
   // 编辑模式：从详情页跳转过来
   if (route.query.mode === 'edit' && route.query.id) {

@@ -319,7 +319,18 @@ func (s *InventoryService) DeductLockedStock(warehouseID, skuID int64, quantity 
 
 // AddStock 增加库存（采购入库时调用）
 func (s *InventoryService) AddStock(warehouseID, skuID int64, quantity int, purchasePrice, totalCost decimal.Decimal, batchNo string, purchaseOrderID int64, storeID int64, createdBy int64, transactionType int8) error {
+	return s.AddStockWithTx(nil, warehouseID, skuID, quantity, purchasePrice, totalCost, batchNo, purchaseOrderID, storeID, createdBy, transactionType)
+}
+
+// AddStockWithTx 增加库存（支持事务）
+func (s *InventoryService) AddStockWithTx(tx *gorm.DB, warehouseID, skuID int64, quantity int, purchasePrice, totalCost decimal.Decimal, batchNo string, purchaseOrderID int64, storeID int64, createdBy int64, transactionType int8) error {
 	now := time.Now()
+
+	// 使用事务连接或默认连接
+	db := s.db
+	if tx != nil {
+		db = tx
+	}
 
 	// 1. 创建 inventory_batch 记录
 	batch := &models.InventoryBatch{
@@ -334,38 +345,44 @@ func (s *InventoryService) AddStock(warehouseID, skuID int64, quantity int, purc
 		Status:            1,
 		EntryDate:         &now,
 	}
-	if err := s.invRepo.CreateBatch(batch); err != nil {
+	if err := db.Create(batch).Error; err != nil {
 		return &AppError{Code: apperrors.InternalError, Message: "创建库存批次失败"}
 	}
 
 	// 2. 更新或创建 warehouse_stocks
-	stock, err := s.invRepo.FindStockByWarehouseAndSKU(warehouseID, skuID)
-	if err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			// 创建新库存记录
-			newStock := &models.WarehouseStock{
-				WarehouseID:       warehouseID,
-				SKUID:             skuID,
-				StockQuantity:     quantity,
-				AvailableQuantity: quantity,
-				LockedQuantity:    0,
-				WarningStock:      10,
-				Version:           0,
-			}
-			if err := s.invRepo.CreateStock(newStock); err != nil {
-				return &AppError{Code: apperrors.InternalError, Message: "创建库存记录失败"}
-			}
-		} else {
+	var stock *models.WarehouseStock
+	var stockModel models.WarehouseStock
+	if err := db.Where("warehouse_id = ? AND sku_id = ?", warehouseID, skuID).First(&stockModel).Error; err != nil {
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
 			return &AppError{Code: apperrors.InternalError, Message: "查询库存失败"}
 		}
 	} else {
+		stock = &stockModel
+	}
+
+	if stock == nil {
+		// 创建新库存记录
+		newStock := &models.WarehouseStock{
+			WarehouseID:       warehouseID,
+			SKUID:             skuID,
+			StockQuantity:     quantity,
+			AvailableQuantity: quantity,
+			LockedQuantity:    0,
+			WarningStock:      10,
+			Version:           0,
+		}
+		if err := db.Create(newStock).Error; err != nil {
+			return &AppError{Code: apperrors.InternalError, Message: "创建库存记录失败"}
+		}
+	} else {
 		// 更新已有库存记录
-		_, err := s.invRepo.UpdateStockWithLock(warehouseID, skuID, stock.Version, map[string]interface{}{
-			"stock_quantity":     gorm.Expr("stock_quantity + ?", quantity),
-			"available_quantity": gorm.Expr("available_quantity + ?", quantity),
-			"version":            gorm.Expr("version + 1"),
-		})
-		if err != nil {
+		if err := db.Model(&models.WarehouseStock{}).
+			Where("warehouse_id = ? AND sku_id = ? AND version = ?", warehouseID, skuID, stock.Version).
+			Updates(map[string]interface{}{
+				"stock_quantity":     gorm.Expr("stock_quantity + ?", quantity),
+				"available_quantity": gorm.Expr("available_quantity + ?", quantity),
+				"version":            gorm.Expr("version + 1"),
+			}).Error; err != nil {
 			return &AppError{Code: apperrors.InternalError, Message: "更新库存失败"}
 		}
 	}
@@ -377,7 +394,7 @@ func (s *InventoryService) AddStock(warehouseID, skuID int64, quantity int, purc
 	}
 	afterStock := beforeStock + quantity
 
-	tx := &models.InventoryTransaction{
+	inventoryTx := &models.InventoryTransaction{
 		StoreID:           storeID,
 		WarehouseID:       &warehouseID,
 		TransactionType:   transactionType, // 动态传入
@@ -393,7 +410,7 @@ func (s *InventoryService) AddStock(warehouseID, skuID int64, quantity int, purc
 		CreatedBy:         int64Ptr(createdBy),
 		CreatedAt:         now,
 	}
-	if err := s.invRepo.CreateTransaction(tx); err != nil {
+	if err := db.Create(inventoryTx).Error; err != nil {
 		return &AppError{Code: apperrors.InternalError, Message: "记录库存流水失败"}
 	}
 

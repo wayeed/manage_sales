@@ -100,6 +100,7 @@ func SetupRouter() *gin.Engine {
 	warehouseService := service.NewWarehouseService(warehouseRepo)
 	inventoryService := service.NewInventoryService(db, inventoryRepo, skuRepo, warehouseRepo)
 	purchaseService := service.NewPurchaseService(db, inventoryService)
+	receiptService := service.NewReceiptService(db, inventoryService)
 	giftService := service.NewGiftService(db, inventoryService)
 	supplierService := service.NewSupplierService(db)
 	transferService := service.NewTransferService(db, inventoryService)
@@ -149,6 +150,7 @@ func SetupRouter() *gin.Engine {
 	productHandler := handler.NewProductHandler(productService, skuService)
 	inventoryHandler := handler.NewInventoryHandler(inventoryService)
 	purchaseHandler := handler.NewPurchaseHandler(purchaseService)
+	receiptHandler := handler.NewReceiptHandler(receiptService)
 	giftHandler := handler.NewGiftHandler(giftService)
 	supplierHandler := handler.NewSupplierHandler(supplierService)
 	transferHandler := handler.NewTransferHandler(transferService)
@@ -587,6 +589,14 @@ func SetupRouter() *gin.Engine {
 		admin.POST("/purchases/:id/items", middleware.RequirePermission("purchase:manage"), purchaseHandler.AppendItems)
 		admin.PUT("/purchases/:id/receipt", middleware.RequirePermission("purchase:manage"), purchaseHandler.ConfirmReceipt)
 		admin.PUT("/purchases/:id/cancel", middleware.RequirePermission("purchase:manage"), purchaseHandler.CancelOrder)
+
+		// ===== 回货单管理 =====
+		admin.POST("/receipts", middleware.RequirePermission("purchase:manage"), receiptHandler.CreateReceipt)           // 创建回货单
+		admin.GET("/receipts", receiptHandler.ListReceipts)                                                           // 回货单列表
+		admin.GET("/receipts/:id", receiptHandler.GetReceiptDetail)                                                   // 回货单详情
+		admin.PUT("/receipts/:id/approve", middleware.RequirePermission("purchase:manage"), receiptHandler.ApproveReceipt) // 审核回货单
+		admin.PUT("/receipts/:id/receive", middleware.RequirePermission("purchase:manage"), receiptHandler.ReceiveReceipt) // 入库操作
+		admin.PUT("/receipts/:id/cancel", middleware.RequirePermission("purchase:manage"), receiptHandler.CancelReceipt)   // 取消回货单
 
 		// ===== 礼品管理（写操作） =====
 		admin.POST("/gifts", middleware.RequirePermission("gift:manage"), giftHandler.Create)

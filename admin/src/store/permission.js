@@ -197,13 +197,25 @@ export const asyncRoutes = [
         path: 'purchase',
         name: 'InventoryPurchase',
         component: () => import('@/views/inventory/purchase/index.vue'),
-        meta: { title: '采购入库', icon: 'ShoppingCart' },
+        meta: { title: '采购管理', icon: 'ShoppingCart' },
       },
       {
         path: 'purchase/detail/:id',
         name: 'PurchaseDetail',
         component: () => import('@/views/inventory/purchase/detail.vue'),
         meta: { title: '采购详情', icon: 'View', hidden: true },
+      },
+      {
+        path: 'receipt',
+        name: 'InventoryReceipt',
+        component: () => import('@/views/inventory/receipt/index.vue'),
+        meta: { title: '回货管理', icon: 'Box' },
+      },
+      {
+        path: 'receipt/detail/:id',
+        name: 'ReceiptDetail',
+        component: () => import('@/views/inventory/receipt/detail.vue'),
+        meta: { title: '回货详情', icon: 'View', hidden: true },
       },
       {
         path: 'transfer',

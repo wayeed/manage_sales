@@ -34,14 +34,19 @@
           stripe
           style="width: 100%"
         >
-          <el-table-column label="商品名称" min-width="180">
+          <el-table-column label="SKU编码" width="120">
             <template #default="{ row }">
-              {{ row.product_name || row.sku?.product?.product_name || row.sku?.sku_name || '-' }}
+              {{ row.sku?.sku_code || '-' }}
             </template>
           </el-table-column>
-          <el-table-column label="SKU" width="160">
+          <el-table-column label="商品名称" min-width="180">
             <template #default="{ row }">
-              {{ row.sku_name || row.sku?.sku_code || '-' }}
+              {{ row.sku_name || row.sku?.product?.product_name || '-' }} 
+            </template>
+          </el-table-column>
+          <el-table-column label="品牌款式" width="160">
+            <template #default="{ row }">
+              {{ row.brand_style || row.sku?.product?.style || '-' }}
             </template>
           </el-table-column>
           <el-table-column prop="quantity" label="采购数量" width="100" align="center" />
@@ -76,9 +81,9 @@
           <el-button
             v-if="Number(detail.status) === 1"
             type="warning"
-            @click="handleReceipt"
+            @click="handleCreateReceipt"
           >
-            确认入库
+            创建回货单
           </el-button>
           <el-button
             v-if="Number(detail.status) === 0"
@@ -90,27 +95,6 @@
         </div>
       </template>
     </el-card>
-
-    <!-- 入库确认弹窗 -->
-    <el-dialog v-dialog-drag v-model="receiptDialogVisible" title="确认入库" width="500px" destroy-on-close>
-      <el-form ref="receiptFormRef" :model="receiptForm" :rules="receiptRules" label-width="100px">
-        <el-form-item label="采购单号">
-          <span>{{ detail?.purchase_no }}</span>
-        </el-form-item>
-        <el-form-item label="入库仓库" prop="warehouse_id">
-          <el-select v-model="receiptForm.warehouse_id" placeholder="请选择入库仓库" style="width: 100%">
-            <el-option v-for="item in warehouseOptions" :key="item.id" :label="item.warehouse_name" :value="item.id" />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="备注">
-          <el-input v-model="receiptForm.remark" type="textarea" :rows="2" placeholder="入库备注" />
-        </el-form-item>
-      </el-form>
-      <template #footer>
-        <el-button @click="receiptDialogVisible = false">取消</el-button>
-        <el-button type="primary" :loading="receiptLoading" @click="handleReceiptSubmit">确认入库</el-button>
-      </template>
-    </el-dialog>
   </div>
 </template>
 
@@ -121,29 +105,14 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   getPurchaseDetail,
   approvePurchase,
-  confirmReceipt,
   cancelPurchase,
 } from '@/api/purchase'
-import { getWarehouseList } from '@/api/warehouse'
 
 const router = useRouter()
 const route = useRoute()
 
 const loading = ref(false)
 const detail = ref(null)
-const warehouseOptions = ref([])
-
-// 入库弹窗相关
-const receiptDialogVisible = ref(false)
-const receiptLoading = ref(false)
-const receiptFormRef = ref(null)
-const receiptForm = reactive({
-  warehouse_id: '',
-  remark: '',
-})
-const receiptRules = {
-  warehouse_id: [{ required: true, message: '请选择入库仓库', trigger: 'change' }],
-}
 
 const fetchDetail = async () => {
   loading.value = true
@@ -198,42 +167,15 @@ const handleApprove = async () => {
   }
 }
 
-const fetchWarehouseOptions = async () => {
-  try {
-    const res = await getWarehouseList()
-    warehouseOptions.value = res.data?.list || res.data || []
-  } catch (error) {
-    console.error('获取仓库列表失败:', error)
-  }
-}
-
-const handleReceipt = () => {
-  receiptForm.warehouse_id = ''
-  receiptForm.remark = ''
-  if (warehouseOptions.value.length === 0) {
-    fetchWarehouseOptions()
-  }
-  receiptDialogVisible.value = true
-}
-
-const handleReceiptSubmit = async () => {
-  const valid = await receiptFormRef.value?.validate().catch(() => false)
-  if (!valid) return
-
-  receiptLoading.value = true
-  try {
-    await confirmReceipt(detail.value.id, {
-      warehouse_id: receiptForm.warehouse_id,
-      remark: receiptForm.remark,
-    })
-    ElMessage.success('入库成功')
-    receiptDialogVisible.value = false
-    fetchDetail()
-  } catch (error) {
-    console.error('入库失败:', error)
-  } finally {
-    receiptLoading.value = false
-  }
+const handleCreateReceipt = () => {
+  router.push({ 
+    path: '/inventory/receipt',
+    query: { 
+      purchase_id: detail.value.id,
+      purchase_no: detail.value.purchase_no,
+      supplier_id: detail.value.supplier_id 
+    }
+  })
 }
 
 const handleCancel = async () => {

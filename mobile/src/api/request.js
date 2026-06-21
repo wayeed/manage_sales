@@ -1,8 +1,8 @@
 // 后端API基础地址
-// 开发环境使用 localhost，生产/内网环境需要修改为实际IP
-// 例如：const BASE_URL = 'http://192.168.1.100:8080/api'
-const BASE_URL = 'http://192.168.8.104:8080/api'
-//const BASE_URL = 'https://www.jiaju.com/api'
+// 从配置文件读取 API 配置
+import { API_CONFIG } from './config'
+
+const BASE_URL = API_CONFIG.BASE_URL
 
 export { BASE_URL }
 

@@ -70,9 +70,10 @@
 <script>
 import { useUserStore } from '../../store/user'
 import { getLatestVersion } from '../../api/app-version'
+import { APP_CONFIG } from '../../api/config'
 
 // 默认下载链接（fallback）
-const DEFAULT_DOWNLOAD_URL = 'https://www.jiaju.com/app/download/jiaju_mall.apk'
+const DEFAULT_DOWNLOAD_URL = APP_CONFIG.DEFAULT_DOWNLOAD_URL
 
 export default {
   data() {
@@ -111,7 +112,8 @@ export default {
         
         // 如果缓存存在且未过期（24小时内），使用缓存
         if (cachedVersion && cacheTime && (now - cacheTime < 24 * 60 * 60 * 1000)) {
-          this.downloadUrl = cachedVersion.download_url || DEFAULT_DOWNLOAD_URL
+          const cachedUrl = this.validateDownloadUrl(cachedVersion.download_url)
+          this.downloadUrl = cachedUrl || DEFAULT_DOWNLOAD_URL
           this.versionInfo = cachedVersion
           return
         }
@@ -121,26 +123,71 @@ export default {
         if (res.code === 200 && res.data) {
           const versionData = res.data
           
-          // 只缓存整包更新的下载链接（update_type为'full'）
-          if (versionData.update_type === 'full' && versionData.download_url) {
-            this.downloadUrl = versionData.download_url
-            this.versionInfo = versionData
+          // update_type: 0-整包更新, 1-热更新
+          // 只处理整包更新
+          if (versionData.update_type === 0) {
+            // 验证下载链接格式
+            const downloadUrl = this.validateDownloadUrl(versionData.download_url)
             
-            // 缓存到本地
-            uni.setStorageSync('app_version_cache', versionData)
-            uni.setStorageSync('app_version_cache_time', now)
-            
-            console.log('获取最新版本成功:', versionData.version_name)
+            if (downloadUrl) {
+              this.downloadUrl = downloadUrl
+              this.versionInfo = versionData
+              
+              // 缓存到本地
+              uni.setStorageSync('app_version_cache', versionData)
+              uni.setStorageSync('app_version_cache_time', now)
+              
+              console.log('获取最新版本成功:', versionData.version_name, versionData.version_code)
+              return
+            } else {
+              console.warn('最新版本下载链接无效:', versionData.download_url)
+            }
           } else {
-            // 如果是热更新，使用默认下载链接
             console.log('最新版本为热更新类型，使用默认下载链接')
-            this.downloadUrl = DEFAULT_DOWNLOAD_URL
           }
         }
+        
+        // 如果没有有效数据，使用默认下载链接
+        this.downloadUrl = DEFAULT_DOWNLOAD_URL
       } catch (err) {
         console.error('获取最新版本失败:', err)
         // 失败时使用默认下载链接
         this.downloadUrl = DEFAULT_DOWNLOAD_URL
+      }
+    },
+    
+    /**
+     * 验证下载链接格式
+     * @param {string} url - 下载链接
+     * @returns {string|null} - 验证通过返回链接，否则返回null
+     */
+    validateDownloadUrl(url) {
+      if (!url || typeof url !== 'string') {
+        return null
+      }
+      
+      // 去除首尾空格
+      url = url.trim()
+      
+      // 验证是否为有效的URL格式
+      try {
+        const urlObj = new URL(url)
+        
+        // 验证协议
+        if (!['http:', 'https:'].includes(urlObj.protocol)) {
+          return null
+        }
+        
+        // 验证是否包含文件名（至少有一个路径段）
+        if (urlObj.pathname === '/' || !urlObj.pathname.includes('.')) {
+          console.warn('下载链接不包含有效文件名')
+          return null
+        }
+        
+        return url
+      } catch (err) {
+        console.error('下载链接格式无效:', err)
+        return null
       }
     },
     
